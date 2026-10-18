@@ -13,15 +13,33 @@
     "early.DerivedWorldInfoAccessor",
     "early.MixinAnvilChunkLoader",
     "early.MixinChunk",
+    "early.MixinChunkCache",
     "early.MixinChunkLight",
+    "early.MixinEntityVoid",
+    "early.MixinItemBlock",
+    "early.MixinMinecartVoid",
     "early.MixinWorld",
     "early.MixinWorldInfo",
-    "early.MixinWorldProvider"
+    "early.MixinWorldProvider",
+    "early.net.C07Accessor",
+    "early.net.C08Accessor",
+    "early.net.MixinEntityPlayerMP",
+    "early.net.MixinFMLNetworkHandler",
+    "early.net.MixinNetHandlerPlayServer",
+    "early.net.MixinNetworkManager",
+    "early.net.MixinPlayerInstance",
+    "early.net.PlayerManagerAccessor",
+    "early.net.S23Accessor"
   ],
   "client": [
+    "early.client.MixinChunkCacheClient",
     "early.client.MixinChunkClient",
+    "early.client.MixinNetHandlerPlayClient",
+    "early.client.MixinRenderGlobal",
+    "early.client.MixinWorldClient",
     "early.client.MixinWorldClientInit",
-    "early.client.MixinWorldClientLight"
+    "early.client.MixinWorldClientLight",
+    "early.client.WorldClientAccessor"
   ],
   "server": []
 }

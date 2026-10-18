@@ -1,8 +1,9 @@
-# Самотест ExtendedHeight: фазы baseline/vanilla-mod/write/verify/client-audit в dev и obf; -Env -NoClient
+# Самотест ExtendedHeight: фазы baseline/vanilla-mod/write/verify/client-audit в dev и obf; -Env -NoClient -Phase
 
 param(
     [ValidateSet('dev', 'obf', 'both')] [string]$Env = 'both',
-    [switch]$NoClient
+    [switch]$NoClient,
+    [ValidateSet('', 'baseline', 'vanilla-mod', 'write', 'verify', 'client-audit')] [string]$Phase = ''
 )
 
 $ErrorActionPreference = 'Stop'
@@ -17,7 +18,7 @@ if (-not $javaHome) { throw 'No JDK found: set EH_JAVA_HOME to a JDK 17+ install
 $env:JAVA_HOME = $javaHome
 Write-Host "JAVA_HOME=$javaHome"
 
-if (Test-Path $base) { Remove-Item -Recurse -Force $base }
+if (-not $Phase -and (Test-Path $base)) { Remove-Item -Recurse -Force $base }
 New-Item -ItemType Directory -Force $base | Out-Null
 
 $serverProperties = @'
@@ -54,6 +55,7 @@ function Invoke-Phase([string]$envName, [string]$task, [string]$dirName, [string
     $envBase = Join-Path $base $envName
     $dir = Join-Path $envBase $dirName
     if ($fresh) {
+        if (Test-Path $dir) { Remove-Item -Recurse -Force $dir }
         New-Item -ItemType Directory -Force $dir | Out-Null
         if ($server) {
             Set-Content -Encoding ascii (Join-Path $dir 'eula.txt') 'eula=true'
@@ -92,11 +94,21 @@ foreach ($e in $envs) {
     $envBase = Join-Path $base $e
     New-Item -ItemType Directory -Force $envBase | Out-Null
     $snapBaseline = Join-Path $envBase 'snapshot-baseline'
-    $results["$e baseline"] = Invoke-Phase $e $serverTask 'baseline' 'baseline' @{ snapshot = $snapBaseline } $true $true $true
-    $results["$e vanilla-mod"] = Invoke-Phase $e $serverTask 'vanillamod' 'vanilla-mod' @{ snapshot = (Join-Path $envBase 'snapshot-vanillamod'); compareWith = $snapBaseline } $false $true $true
-    $results["$e write"] = Invoke-Phase $e $serverTask 'extended' 'write' @{ snapshot = (Join-Path $envBase 'snapshot-extended'); compareWith = $snapBaseline } $false $true $true
-    $results["$e verify"] = Invoke-Phase $e $serverTask 'extended' 'verify' @{} $false $false $true
-    if (-not $NoClient) {
+    $run = { param($p) -not $Phase -or $Phase -eq $p }
+    if (& $run 'baseline') {
+        if (Test-Path $snapBaseline) { Remove-Item -Recurse -Force $snapBaseline }
+        $results["$e baseline"] = Invoke-Phase $e $serverTask 'baseline' 'baseline' @{ snapshot = $snapBaseline } $true $true $true
+    }
+    if (& $run 'vanilla-mod') {
+        $results["$e vanilla-mod"] = Invoke-Phase $e $serverTask 'vanillamod' 'vanilla-mod' @{ snapshot = (Join-Path $envBase 'snapshot-vanillamod'); compareWith = $snapBaseline } $false $true $true
+    }
+    if (& $run 'write') {
+        $results["$e write"] = Invoke-Phase $e $serverTask 'extended' 'write' @{ snapshot = (Join-Path $envBase 'snapshot-extended'); compareWith = $snapBaseline } $false $true $true
+    }
+    if (& $run 'verify') {
+        $results["$e verify"] = Invoke-Phase $e $serverTask 'extended' 'verify' @{} $false $false $true
+    }
+    if (-not $NoClient -and (& $run 'client-audit')) {
         $results["$e client-audit"] = Invoke-Phase $e $clientTask 'client' 'client-audit' @{} $false $true $false
     }
 }

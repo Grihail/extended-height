@@ -22,7 +22,7 @@ public final class RangeResolver {
 
     public static HeightRange resolve(World world) {
         if (world.isRemote) {
-            // Клиентские миры получают диапазон от сервера (этап 3)
+            // Клиентские миры берут диапазон из таблицы сервера (client.ClientRanges)
             return HeightRange.VANILLA;
         }
         int dim = world.provider.dimensionId;

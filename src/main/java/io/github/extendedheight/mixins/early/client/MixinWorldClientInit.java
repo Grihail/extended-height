@@ -7,10 +7,10 @@ import org.spongepowered.asm.mixin.injection.At;
 import org.spongepowered.asm.mixin.injection.Inject;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 
+import io.github.extendedheight.client.ClientRanges;
 import io.github.extendedheight.core.IExtendedHeightWorld;
-import io.github.extendedheight.core.RangeResolver;
 
-/** Клиентские миры: диапазон задаётся в finishSetup() перед createChunkProvider() */
+/** Клиентские миры: диапазон из таблицы сервера задаётся в finishSetup() перед createChunkProvider() */
 @Mixin(World.class)
 public abstract class MixinWorldClientInit {
 
@@ -24,6 +24,6 @@ public abstract class MixinWorldClientInit {
         require = 1,
         allow = 1)
     private void eh$resolveRangeClient(CallbackInfo ci) {
-        ((IExtendedHeightWorld) this).eh$setRange(RangeResolver.resolve((World) (Object) this));
+        ((IExtendedHeightWorld) this).eh$setRange(ClientRanges.resolve((World) (Object) this));
     }
 }
