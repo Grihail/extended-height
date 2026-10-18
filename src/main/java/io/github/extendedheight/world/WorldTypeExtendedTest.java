@@ -19,9 +19,11 @@ import net.minecraft.world.chunk.storage.ExtendedBlockStorage;
 
 import io.github.extendedheight.api.ExtendedHeight;
 import io.github.extendedheight.api.HeightRange;
+import io.github.extendedheight.api.IVoidEffectsProvider;
+import io.github.extendedheight.api.VoidEffects;
 
 /** Тип мира для пробы расширенной высоты: -256..319, равнины, без мобов; шерсть по секциям, столб-маркер */
-public class WorldTypeExtendedTest extends WorldType {
+public class WorldTypeExtendedTest extends WorldType implements IVoidEffectsProvider {
 
     public static final String NAME = "extendedtest";
     public static final int MIN_Y = -256;
@@ -30,6 +32,9 @@ public class WorldTypeExtendedTest extends WorldType {
     public static final int BEDROCK_Y = -64;
 
     private static WorldTypeExtendedTest instance;
+
+    /** Только самотест: эффекты пустоты типа мира; null — встроенные */
+    public static volatile VoidEffects testVoidEffects;
 
     private WorldTypeExtendedTest() {
         super(NAME);
@@ -45,6 +50,11 @@ public class WorldTypeExtendedTest extends WorldType {
 
     public static WorldTypeExtendedTest instance() {
         return instance;
+    }
+
+    @Override
+    public VoidEffects getVoidEffects(World world) {
+        return testVoidEffects;
     }
 
     @Override

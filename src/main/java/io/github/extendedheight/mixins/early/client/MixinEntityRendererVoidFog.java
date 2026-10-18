@@ -12,9 +12,9 @@ import org.spongepowered.asm.mixin.injection.Redirect;
 
 import io.github.extendedheight.api.ExtendedHeight;
 import io.github.extendedheight.api.HeightRange;
-import io.github.extendedheight.core.EhConfig;
+import io.github.extendedheight.core.VoidEffectsResolver;
 
-/** Затемнение пустоты (6.6): в расширенных мирах выключено по умолчанию, отсчёт от minY */
+/** Затемнение пустоты (6.6) в расширенных мирах по VoidEffectsResolver, отсчёт от minY */
 @Mixin(EntityRenderer.class)
 public abstract class MixinEntityRendererVoidFog {
 
@@ -37,7 +37,7 @@ public abstract class MixinEntityRendererVoidFog {
             return d0;
         }
         WorldProvider provider = mc.theWorld.provider;
-        return EhConfig.voidFog ? d0 - range.minY * provider.getVoidFogYFactor() : 1.0D;
+        return VoidEffectsResolver.effective(mc.theWorld).fog ? d0 - range.minY * provider.getVoidFogYFactor() : 1.0D;
     }
 
     @Redirect(
@@ -50,7 +50,7 @@ public abstract class MixinEntityRendererVoidFog {
         if (mc.theWorld == null || !ExtendedHeight.isExtended(mc.theWorld)) {
             return vanilla;
         }
-        return vanilla && EhConfig.voidFog;
+        return vanilla && VoidEffectsResolver.effective(mc.theWorld).fog;
     }
 
     /** d0 = skyLight / 16 + (y + 4) / 32 от minY */

@@ -30,8 +30,10 @@ import cpw.mods.fml.relauncher.Side;
 import io.github.extendedheight.ExtendedHeightMod;
 import io.github.extendedheight.api.ExtendedHeight;
 import io.github.extendedheight.api.HeightRange;
+import io.github.extendedheight.api.VoidEffects;
 import io.github.extendedheight.client.VoidStats;
 import io.github.extendedheight.core.EhConfig;
+import io.github.extendedheight.core.VoidEffectsResolver;
 import io.github.extendedheight.mixins.early.client.EntityRendererAccessor;
 import io.github.extendedheight.net.ChunkCodec;
 import io.github.extendedheight.net.ExtPackets;
@@ -431,27 +433,80 @@ public final class ClientSelfTest {
         int x = MathHelper.floor_double(mc.thePlayer.posX), z = MathHelper.floor_double(mc.thePlayer.posZ);
         boolean followMinY = EhConfig.voidParticlesFollowMinY;
         double intensity = EhConfig.voidParticleIntensity;
+        EhConfig.FogSetting fogSetting = EhConfig.voidFog;
+        int minY = WorldTypeExtendedTest.MIN_Y;
         try {
+            // Встроенное по умолчанию: половина ванильных частиц ниже y 8, без тумана
+            WorldTypeExtendedTest.testVoidEffects = null;
             int defaults = voidParticles(mc, x, z);
-            EhConfig.voidParticleIntensity = 1.0D;
+            WorldTypeExtendedTest.testVoidEffects = VoidEffects.of(false, 0, 1.0F);
             int full = voidParticles(mc, x, z);
             report.check(
-                "default config: void particles at y -100, about half of intensity 1",
+                "built-in default: void particles at y -100, about half of a world asking for the full amount",
                 defaults > 0 && defaults < full * 0.75D && defaults > full * 0.25D,
                 defaults + " vs " + full);
+            WorldTypeExtendedTest.testVoidEffects = null;
             EhConfig.voidParticlesFollowMinY = true;
-            int followed = voidParticles(mc, x, z);
             report.check(
-                "voidParticlesFollowMinY: no void particles at y -100 (zone is below minY + 8)",
-                followed == 0,
-                followed);
+                "built-in default + voidParticlesFollowMinY: no particles at y -100",
+                voidParticles(mc, x, z) == 0,
+                null);
             EhConfig.voidParticlesFollowMinY = false;
+
+            // Собственный выбор мира; конфиг может его только ослабить
+            WorldTypeExtendedTest.testVoidEffects = VoidEffects.none();
+            report.check(
+                "world without void particles: none at y -100 (config cannot add them)",
+                voidParticles(mc, x, z) == 0,
+                null);
+            WorldTypeExtendedTest.testVoidEffects = VoidEffects.of(false, minY, 1.0F);
+            report.check("world with particles at its bottom: none at y -100", voidParticles(mc, x, z) == 0, null);
+            WorldTypeExtendedTest.testVoidEffects = VoidEffects.of(false, 0, 1.0F);
+            EhConfig.voidParticleIntensity = 0.5D;
+            int halved = voidParticles(mc, x, z);
+            report.check(
+                "config multiplier 0.5 halves a world's full amount",
+                halved > full * 0.25D && halved < full * 0.75D,
+                halved + " vs " + full);
             EhConfig.voidParticleIntensity = 0.0D;
-            int none = voidParticles(mc, x, z);
-            report.check("voidParticleIntensity 0: no void particles", none == 0, none);
+            report.check(
+                "config multiplier 0: no particles even if the world wants them",
+                voidParticles(mc, x, z) == 0,
+                null);
+            EhConfig.voidParticleIntensity = 1.0D;
+
+            World w = mc.theWorld;
+            WorldTypeExtendedTest.testVoidEffects = VoidEffects.of(true, 0, 1.0F);
+            EhConfig.voidFog = EhConfig.FogSetting.AUTO;
+            boolean worldOnAuto = VoidEffectsResolver.effective(w).fog;
+            EhConfig.voidFog = EhConfig.FogSetting.OFF;
+            boolean worldOnOff = VoidEffectsResolver.effective(w).fog;
+            WorldTypeExtendedTest.testVoidEffects = VoidEffects.of(false, 0, 1.0F);
+            EhConfig.voidFog = EhConfig.FogSetting.ON;
+            boolean worldOffOn = VoidEffectsResolver.effective(w).fog;
+            WorldTypeExtendedTest.testVoidEffects = null;
+            boolean builtInOn = VoidEffectsResolver.effective(w).fog;
+            EhConfig.voidFog = EhConfig.FogSetting.AUTO;
+            boolean builtInAuto = VoidEffectsResolver.effective(w).fog;
+            report.check(
+                "void fog: world on + auto = on, world on + off = off, world off + on = off, built-in + on = on, built-in + auto = off",
+                worldOnAuto && !worldOnOff && !worldOffOn && builtInOn && !builtInAuto,
+                worldOnAuto + " " + worldOnOff + " " + worldOffOn + " " + builtInOn + " " + builtInAuto);
+            report.check(
+                "vanilla world: no effective void effects (vanilla code)",
+                VoidEffectsResolver.effective(
+                    mc.getIntegratedServer()
+                        .worldServerForDimension(-1))
+                    == null
+                    || !ExtendedHeight.isExtended(
+                        mc.getIntegratedServer()
+                            .worldServerForDimension(-1)),
+                null);
         } finally {
+            WorldTypeExtendedTest.testVoidEffects = null;
             EhConfig.voidParticlesFollowMinY = followMinY;
             EhConfig.voidParticleIntensity = intensity;
+            EhConfig.voidFog = fogSetting;
         }
     }
 
