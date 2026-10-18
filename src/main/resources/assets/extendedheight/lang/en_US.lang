@@ -1,1 +1,2 @@
 generator.extendedtest=ExtendedHeight test (-256..319)
+generator.extendedbiomes=ExtendedHeight biomes test (-256..319)

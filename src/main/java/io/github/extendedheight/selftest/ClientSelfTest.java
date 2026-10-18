@@ -37,6 +37,7 @@ import io.github.extendedheight.core.VoidEffectsResolver;
 import io.github.extendedheight.mixins.early.client.EntityRendererAccessor;
 import io.github.extendedheight.net.ChunkCodec;
 import io.github.extendedheight.net.ExtPackets;
+import io.github.extendedheight.world.WorldTypeExtendedBiomes;
 import io.github.extendedheight.world.WorldTypeExtendedTest;
 
 /** Клиентская часть самотеста client-audit: ванильный FLAT и мир extendedtest, сверка блоков и пакетов */
@@ -221,6 +222,7 @@ public final class ClientSelfTest {
                 checkPlayerAt(mc, ClientEntityTests.Y);
                 checkVoidEffects(mc);
                 checkBiomesAt(mc);
+                checkBiomesDemo(mc);
                 entities.spawnEntities();
                 return true;
             case 10:
@@ -509,6 +511,40 @@ public final class ClientSelfTest {
             EhConfig.voidParticleIntensity = intensity;
             EhConfig.voidFog = fogSetting;
         }
+    }
+
+    /** Демо-тип extendedbiomes: ответы по высоте и демо-места чанка (0, 0) */
+    private void checkBiomesDemo(Minecraft mc) {
+        WorldTypeExtendedBiomes type = WorldTypeExtendedBiomes.biomesInstance();
+        report.check(
+            "extendedbiomes: registered, -256..319, swampland below 0, column biome 0..255, ice plains from 256",
+            type != null && WorldType.parseWorldType(WorldTypeExtendedBiomes.NAME) == type
+                && type.getBiome(null, 0, -1, 0, null) == net.minecraft.world.biome.BiomeGenBase.swampland
+                && type.getBiome(null, 0, 0, 0, null) == null
+                && type.getBiome(null, 0, 255, 0, null) == null
+                && type.getBiome(null, 0, 256, 0, null) == net.minecraft.world.biome.BiomeGenBase.icePlains,
+            null);
+        WorldServer world = serverWorld(mc);
+        serverTasks.add(() -> {
+            net.minecraft.world.chunk.Chunk c = type.getChunkGenerator(world, "")
+                .provideChunk(0, 0);
+            int[] floors = { WorldTypeExtendedBiomes.SURFACE_Y, WorldTypeExtendedBiomes.CAVE_FLOOR_Y,
+                WorldTypeExtendedBiomes.PLATFORM_Y };
+            boolean ok = true;
+            for (int f : floors) {
+                ok &= c.getBlock(5, f, 5) == Blocks.water && c.getBlock(5, f - 1, 5) == Blocks.stone
+                    && c.getBlock(8, f, 8) == Blocks.grass
+                    && c.getBlock(10, f + 1, 5) == Blocks.leaves
+                    && c.getBlock(10, f + 2, 5) == Blocks.leaves;
+            }
+            ok &= c.getBlock(8, WorldTypeExtendedBiomes.CAVE_FLOOR_Y + 3, 8) == Blocks.air
+                && c.getBlock(12, 20, 12) == Blocks.air
+                && c.getBlock(4, WorldTypeExtendedBiomes.CAVE_FLOOR_Y + 6, 4) == Blocks.glowstone;
+            report.check(
+                "extendedbiomes: demo spots (water, grass, leaves) on the surface, in the cave at -40, on the platform at 270; shaft and lights",
+                ok,
+                null);
+        });
     }
 
     /** Вариант C на клиенте: цвета и цвет неба по биому мира в (x, y, z) */

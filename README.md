@@ -94,7 +94,9 @@ world.getHeight();                                // maxY + 1 для расши�
 
 ## Что нужно учесть генератору
 
-Пример полного генератора — тип мира `extendedtest` (`world/WorldTypeExtendedTest`); подробный разбор для Reverworld —
+Пример полного генератора — тип мира `extendedtest` (`world/WorldTypeExtendedTest`), а `extendedbiomes`
+(`world/WorldTypeExtendedBiomes`) — то же плюс биомы по высоте через `IBiomeAtProvider` (ниже 0 — болото, от 256 —
+ледяные равнины) и демо-площадки с травой, листвой и водой на y 63, −40 и 270 у колонны на x/z 0; подробный разбор для Reverworld —
 [docs/reverworld-compat.md](docs/reverworld-compat.md).
 
 ### Колонка чанка на весь диапазон: `ExtendedChunkPrimer`

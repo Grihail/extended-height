@@ -41,7 +41,12 @@ public class WorldTypeExtendedTest extends WorldType implements IVoidEffectsProv
     public static volatile boolean testBiomesByHeight;
 
     private WorldTypeExtendedTest() {
-        super(NAME);
+        this(NAME);
+    }
+
+    /** Для вариантов тестового мира ({@link WorldTypeExtendedBiomes}) */
+    protected WorldTypeExtendedTest(String name) {
+        super(name);
     }
 
     /** Создаёт тип мира и запрашивает диапазон; вызывать один раз в pre-init */
@@ -49,6 +54,7 @@ public class WorldTypeExtendedTest extends WorldType implements IVoidEffectsProv
         if (instance == null) {
             instance = new WorldTypeExtendedTest();
             ExtendedHeight.register(instance, MIN_Y, MAX_Y);
+            WorldTypeExtendedBiomes.registerType();
         }
     }
 
@@ -105,9 +111,9 @@ public class WorldTypeExtendedTest extends WorldType implements IVoidEffectsProv
 
     public static class Generator implements IChunkProvider {
 
-        private final World world;
+        protected final World world;
 
-        Generator(World world) {
+        protected Generator(World world) {
             this.world = world;
         }
 
@@ -129,8 +135,12 @@ public class WorldTypeExtendedTest extends WorldType implements IVoidEffectsProv
                     primer.setBlock(0, y, 0, columnBlock(y), columnMeta(y));
                 }
             }
+            addFeatures(primer, cx, cz);
             return primer.toChunk(world, cx, cz);
         }
+
+        /** Дополнительные блоки варианта тестового мира до сборки чанка */
+        protected void addFeatures(ExtendedChunkPrimer primer, int cx, int cz) {}
 
         @Override
         public boolean chunkExists(int x, int z) {
