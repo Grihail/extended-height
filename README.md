@@ -11,14 +11,24 @@
 
 ## Подключение
 
-Пока артефакт не опубликован, его можно собрать локально (`gradlew build`) или подключить через mavenLocal
-(`gradlew publishToMavenLocal`). Затем в `dependencies.gradle` своего мода:
+Пока артефакт не опубликован в общем репозитории, его ставят в mavenLocal: `gradlew publishToMavenLocal` в этом
+проекте (координаты `io.github.extendedheight:extendedheight:1.0.0`, классификаторы `api`, `dev`, `sources` и
+основной обфусцированный jar). В своём моде (шаблон GTNH ExampleMod / RFG):
 
 ```groovy
+// repositories.gradle
+repositories { mavenLocal() }
+
+// dependencies.gradle
 dependencies {
-    implementation("io.github.extendedheight:extendedheight:<версия>:dev")
+    compileOnly("io.github.extendedheight:extendedheight:1.0.0:api")            // компиляция только против API
+    devOnlyNonPublishable("io.github.extendedheight:extendedheight:1.0.0:dev")  // библиотека с миксинами в runClient/runServer
 }
 ```
+
+`@Mod(dependencies = "required-after:extendedheight@[1.0,)")`. В игре и в obf-запусках (`runObfServer`/`runObfClient`) в
+`mods` кладётся `extendedheight-1.0.0.jar` и UniMixins. Проверено проектом-потребителем `tools/consumer-test`
+(свой тип мира −256…319, только API): миксины библиотеки работают и в его dev-окружении, и в obf.
 
 ### Требования
 
@@ -67,6 +77,19 @@ world.getHeight();                                // maxY + 1 для расши�
 в pre-init/init, а не позже.
 
 Приоритет запроса: `IExtendedHeightProvider` → регистрация по ID → регистрация по `WorldType` (для измерения 0).
+
+### Версии и стабильность API
+
+- Версия мода — семантическая: `MAJOR.MINOR.PATCH` (сейчас **1.0.0**, задаётся `modVersion` в `gradle.properties`).
+  Зависимость объявляется так: `@Mod(dependencies = "required-after:extendedheight@[1.0,)")`.
+- Публичное API — **только пакет `io.github.extendedheight.api`** (он же целиком — `-api.jar`). Остальные пакеты
+  (`core`, `net`, `client`, `mixins`, `world`, `selftest`) внутренние и могут меняться в любой версии.
+- Версия API отдельно: `ExtendedHeight.API_VERSION` и FML-аннотация `@API(provides = "ExtendedHeightAPI",
+  apiVersion = "1.0")` на пакете. MAJOR меняется только при несовместимых изменениях (удалённые или изменённые методы,
+  другой формат сохранения); MINOR — при добавлениях. Удаление — через `@Deprecated` минимум на одну MINOR-версию.
+- Формат сохранения (тег `ExtendedHeight` в `level.dat`, отрицательные теги `Y` секций) — часть контракта, меняется
+  только с MAJOR.
+- Сеть: сервер с модом требует у клиента ту же версию мода.
 
 ## Что нужно учесть генератору
 
@@ -125,6 +148,9 @@ Forge-обёртку `BiomeDecorator.nextInt` (`i ≤ 1 → 0`):
   при y < 0. Правильно — перебирать массив и брать `ebs.getYLocation()`.
 - Расширенное сохранение, открытое **без мода**, падает при загрузке чанков (ванильный загрузчик не знает секций
   с Y < 0 и Y > 15).
+- В расширенном чанке `entity.chunkCoordY` — реальная секция (может быть отрицательной), а списки
+  `chunk.entityLists` идут от нижней секции мира: индекс = `chunkCoordY − minSection`. Моды, которые сами читают
+  `entityLists[chunkCoordY]`, при отрицательной секции выйдут за массив; правильно — `World.getEntitiesWithinAABB`.
 - `PathPoint.makeHash` упаковывает y в 8 бит; коллизия возможна только у точек на расстоянии 256 по вертикали,
   что для поиска пути недостижимо.
 

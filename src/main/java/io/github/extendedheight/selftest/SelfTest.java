@@ -195,6 +195,7 @@ public final class SelfTest {
                 writeExtended();
                 writeLateDimension();
                 new LightTests(this, extWorld()).runWrite();
+                new ServerEntityTests(this, extWorld(), server.worldServerForDimension(0)).run();
                 saveAll();
                 snapshotAndCompare(false);
                 checkSavedSections();

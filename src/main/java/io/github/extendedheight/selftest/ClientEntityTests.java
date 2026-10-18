@@ -64,6 +64,9 @@ final class ClientEntityTests {
     private volatile int batId = -1;
     private volatile boolean batHanging;
     private volatile int flyingBatId = -1;
+    /** Корова за пшеницей на сервере: текущее и наименьшее расстояние до игрока, диагностика */
+    private volatile double temptDist = -1, temptMinDist = Double.MAX_VALUE;
+    private volatile String temptInfo = "";
     /** Тики наблюдения летающей мыши и сколько раз менялась её цель */
     private int flyingTicks, flyingTargetChanges;
     private ChunkCoordinates lastTarget;
@@ -131,6 +134,8 @@ final class ClientEntityTests {
             cowId = cow.getEntityId();
             cowStartX = cow.posX;
             cowStartZ = cow.posZ;
+            // Корову двигает только навигатор: её ИИ может сменить путь и сделать проверку нестабильной
+            cow.tasks.taskEntries.clear();
             // PathNavigate планирует только для моба на земле; свежий ещё не тикал
             cow.onGround = true;
             pathFound = cow.getNavigator()
@@ -200,6 +205,32 @@ final class ClientEntityTests {
             if (!(e instanceof EntityPlayerMP)) {
                 snap.put(e.getEntityId(), new Snap(e));
             }
+        }
+        Entity tempt = world.getEntityByID(temptCowId);
+        if (tempt instanceof EntityCow && !world.playerEntities.isEmpty()) {
+            EntityPlayerMP p = player();
+            temptDist = tempt.getDistanceToEntity(p);
+            temptMinDist = Math.min(temptMinDist, temptDist);
+            String running = "no tempt task";
+            for (Object o : ((EntityCow) tempt).tasks.taskEntries) {
+                net.minecraft.entity.ai.EntityAIBase action = ((net.minecraft.entity.ai.EntityAITasks.EntityAITaskEntry) o).action;
+                if (action instanceof net.minecraft.entity.ai.EntityAITempt) {
+                    running = "tempt running " + ((net.minecraft.entity.ai.EntityAITempt) action).isRunning();
+                }
+            }
+            ItemStack held = p.getCurrentEquippedItem();
+            temptInfo = String.format(
+                "player at %.1f,%.1f,%.1f holding %s; cow at %.1f,%.1f,%.1f; %s",
+                p.posX,
+                p.posY,
+                p.posZ,
+                held == null ? "nothing"
+                    : held.getItem()
+                        .getUnlocalizedName(),
+                tempt.posX,
+                tempt.posY,
+                tempt.posZ,
+                running);
         }
         Entity flying = world.getEntityByID(flyingBatId);
         if (flying instanceof EntityBat && !((EntityBat) flying).getIsBatHanging()) {
@@ -294,12 +325,13 @@ final class ClientEntityTests {
 
     void checkTempt(Minecraft mc) {
         Snap cow = snapshot.get(temptCowId);
-        double dist = cow == null ? -1 : Math.hypot(cow.x - (x0 + 0.5D), cow.z - (z0 + 0.5D));
         report.check(
-            "cow at y -100 follows the player holding wheat (distance " + String.format("%.1f", temptStartDist)
+            "cow at y -100 follows the player holding wheat (distance to the player "
+                + String.format("%.1f", temptStartDist)
                 + " -> < 4)",
-            cow != null && dist < 4.0D,
-            dist);
+            temptDist >= 0 && temptDist < 4.0D,
+            String.format("now %.1f, min %.1f; %s", temptDist, temptMinDist, temptInfo));
+        report.info(String.format("tempt cow: distance now %.1f, min %.1f; %s", temptDist, temptMinDist, temptInfo));
         report.check(
             "bat hanging under a 1-block ceiling at y -96 stays there (block above checked with floor)",
             batHanging,

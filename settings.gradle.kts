@@ -19,3 +19,6 @@ pluginManagement {
 plugins {
     id("com.gtnewhorizons.gtnhsettingsconvention") version("2.0.33")
 }
+
+// artifactId публикуемой библиотеки (иначе берётся имя папки)
+rootProject.name = "extendedheight"

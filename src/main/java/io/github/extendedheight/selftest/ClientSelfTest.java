@@ -63,6 +63,8 @@ public final class ClientSelfTest {
     /** Вызывается по окончании загрузки, после записи аудита миксинов в report */
     static void start(SelfTest report) {
         ExtPackets.forceWireRoundTrip = true;
+        // Окно теста может терять фокус — иначе ваниль поставит одиночную игру на паузу
+        net.minecraft.client.Minecraft.getMinecraft().gameSettings.pauseOnLostFocus = false;
         FMLCommonHandler.instance()
             .bus()
             .register(new ClientSelfTest(report));
@@ -256,6 +258,21 @@ public final class ClientSelfTest {
             "S26 chunk limit for 16 sections = vanilla 5",
             ChunkCodec.maxChunksPerBulk(16) == 5,
             ChunkCodec.maxChunksPerBulk(16));
+
+        ModContainer self = Loader.instance()
+            .getIndexedModList()
+            .get(ExtendedHeightMod.MODID);
+        report.check(
+            "mod version is semantic MAJOR.MINOR.PATCH and matches the build",
+            self != null && self.getVersion()
+                .matches("\\d+\\.\\d+\\.\\d+")
+                && self.getVersion()
+                    .equals(io.github.extendedheight.Tags.VERSION),
+            self == null ? null : self.getVersion());
+        report.check(
+            "FML knows the API package (ExtendedHeightAPI " + ExtendedHeight.API_VERSION + ")",
+            cpw.mods.fml.common.ModAPIManager.INSTANCE.hasAPI("ExtendedHeightAPI"),
+            null);
 
         Map<String, String> mods = new HashMap<>();
         for (ModContainer mod : Loader.instance()

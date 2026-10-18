@@ -42,6 +42,7 @@ public final class NetClientSelfTest {
     private final int port;
     private final boolean noMod;
     private int step, stepTicks, ticks;
+    private int reconnects;
     private boolean done;
     /** "x,y,z" -> ожидаемый блок, проверяется на клиенте и по ответам сервера */
     private final Map<String, Block> expected = new ConcurrentHashMap<>();
@@ -57,6 +58,8 @@ public final class NetClientSelfTest {
 
     static void start(SelfTest report, String server, boolean noMod) {
         NetClientSelfTest test = new NetClientSelfTest(report, server, noMod);
+        // Окно теста может терять фокус — иначе ваниль поставит одиночную игру на паузу
+        net.minecraft.client.Minecraft.getMinecraft().gameSettings.pauseOnLostFocus = false;
         FMLCommonHandler.instance()
             .bus()
             .register(test);
@@ -158,6 +161,19 @@ public final class NetClientSelfTest {
             case 0:
                 return connect(mc);
             case 1:
+                if (mc.theWorld == null && mc.currentScreen instanceof GuiDisconnected) {
+                    String reason = disconnectReason((GuiDisconnected) mc.currentScreen);
+                    // Потерянное первое соединение повторяется один раз и записывается
+                    if (reason != null && reason.contains("Timed out") && reconnects++ == 0) {
+                        report.info("connection timed out before the server answered, reconnecting once");
+                        stepTicks = 0;
+                        connect(mc);
+                        return false;
+                    }
+                    report.check("network: client with the mod joins the server", false, reason);
+                    finish(mc);
+                    return false;
+                }
                 if (!settled) {
                     return false;
                 }

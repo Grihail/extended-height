@@ -3,18 +3,18 @@
 	"modList": [{
 		"modid": "${modId}",
 		"name": "${modName}",
-		"description": "An example mod for Minecraft 1.7.10 with Forge focused on a stable setup.",
+		"description": "Library: extends the world height range (for example -256..319) for dimensions and world types that opt in through its API. Worlds that do not opt in stay exactly vanilla. Required on both server and client.",
 		"version": "${modVersion}",
 		"mcversion": "${minecraftVersion}",
-		"url": "https://github.com/SinTh0r4s/MyMod",
+		"url": "",
 		"updateUrl": "",
-		"authorList": ["SinTho0r4s"],
+		"authorList": ["Grihail"],
 		"credits": "",
 		"logoFile": "",
 		"screenshots": [],
 		"parent": "",
-		"requiredMods": [],
-		"dependencies": [],
+		"requiredMods": ["unimixins"],
+		"dependencies": ["unimixins"],
 		"dependants": [],
 		"useDependencyInformation": false
 	}]

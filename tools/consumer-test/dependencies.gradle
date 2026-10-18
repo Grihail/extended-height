@@ -1,0 +1,25 @@
+// Библиотека как у мода-генератора: компиляция только против API, в dev-запусках вся библиотека
+def ehVersion = "1.0.0"
+dependencies {
+    compileOnly("io.github.extendedheight:extendedheight:${ehVersion}:api")
+    devOnlyNonPublishable("io.github.extendedheight:extendedheight:${ehVersion}:dev")
+}
+
+// Obf-сервер: отдельный каталог с reobf-jar этого мода, релизным jar библиотеки и UniMixins
+def obfDir = project.file("run/obf-server")
+def ownObfMods = project.file("run/obfuscated/mods")
+def libJar = project.file("../../build/libs/extendedheight-${ehVersion}.jar")
+def libObfMods = project.file("../../run/obfuscated/mods")
+tasks.matching { it.name == "runObfServer" }.configureEach {
+    workingDir = obfDir
+    doFirst {
+        def mods = new File(obfDir, "mods")
+        mods.mkdirs()
+        def jars = [libJar] + (ownObfMods.listFiles() as List) +
+            (libObfMods.listFiles().findAll { it.name.startsWith("unimixins") } as List)
+        jars.each { File jar ->
+            java.nio.file.Files.copy(jar.toPath(), new File(mods, jar.name).toPath(),
+                java.nio.file.StandardCopyOption.REPLACE_EXISTING)
+        }
+    }
+}

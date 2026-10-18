@@ -9,6 +9,9 @@ import io.github.extendedheight.core.RangeRegistry;
 /** Точка входа API: register* до загрузки миров или IExtendedHeightProvider; диапазон фиксируется в level.dat */
 public final class ExtendedHeight {
 
+    /** Версия API MAJOR.MINOR: MAJOR — несовместимые изменения, MINOR — добавления; совпадает с FML @API */
+    public static final String API_VERSION = "1.0";
+
     private ExtendedHeight() {}
 
     /** Запрашивает расширенный диапазон для id измерения */

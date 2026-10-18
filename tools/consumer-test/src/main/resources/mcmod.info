@@ -1,0 +1,2 @@
+[{"modid": "${modId}", "name": "${modName}", "version": "${modVersion}", "mcversion": "${minecraftVersion}",
+  "description": "Test consumer of ExtendedHeight.", "dependencies": ["extendedheight"]}]
