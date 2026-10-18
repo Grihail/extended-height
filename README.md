@@ -1,109 +1,117 @@
-# Example Forge Mod for Minecraft 1.7.10
+# ExtendedHeight
 
-[![](https://jitpack.io/v/GTNewHorizons/ExampleMod1.7.10.svg)](https://jitpack.io/#GTNewHorizons/ExampleMod1.7.10)
-[![](https://github.com/GTNewHorizons/ExampleMod1.7.10/actions/workflows/build-and-test.yml/badge.svg)](https://github.com/GTNewHorizons/ExampleMod1.7.10/actions/workflows/build-and-test.yml)
+Мод-библиотека для Minecraft 1.7.10 (Forge 10.13.4.1614): расширенный вертикальный диапазон мира для отдельных
+измерений, например y −256…319. Измерения, не включившие расширение, работают как в ванили — по поведению и по
+формату сохранений.
 
-An example mod for Minecraft 1.7.10 with Forge focussed on a stable, updatable setup.
+> **Статус: веха 1 из 5** (хранение, World API, сохранение — только сервер). Свет, сеть, клиентский рендер,
+> сущности и API генератора ещё не готовы. Играть в расширенном мире на клиенте пока нельзя.
+> Подробности — в [docs/patch-map.md](docs/patch-map.md).
 
-<!-- omit in toc -->
-### Table of Contents
+## Подключение
 
-* [Example Forge Mod for Minecraft 1.7.10](#example-forge-mod-for-minecraft-1710)
-    * [Motivation](#motivation)
-    * [Help! I'm stuck!](#help-im-stuck)
-    * [Getting started](#getting-started)
-    * [Features](#features)
-    * [Files](#files)
-    * [Forge's Access Transformers](#forges-access-transformers)
-    * [Mixins](#mixins)
-    * [Advanced](#advanced)
-    * [Feedback wanted](#feedback-wanted)
+Пока артефакт не опубликован, его можно собрать локально (`gradlew build`) или подключить через mavenLocal
+(`gradlew publishToMavenLocal`). Затем в `dependencies.gradle` своего мода:
 
+```groovy
+dependencies {
+    implementation("io.github.extendedheight:extendedheight:<версия>:dev")
+}
+```
 
-### Motivation
+Мод использует миксины через UniMixins: UniMixins нужен в рантайме.
 
-We had our fair share in struggles with build scripts for Minecraft Forge. There are quite a few pitfalls from non-obvious error messages. This Example Project provides you a build system you can adapt to over 90% of Minecraft Forge mods and can easily be updated if need be.
+## API
 
-### Help! I'm stuck!
+Пакет `io.github.extendedheight.api`.
 
-We all have been there! Check out our [FAQ](https://github.com/GTNewHorizons/ExampleMod1.7.10/blob/main/docs/FAQ.md). If that doesn't help, please open an issue.
+```java
+// pre-init / init, до загрузки миров:
+ExtendedHeight.register(myDimensionId, -256, 319);       // по ID измерения
+ExtendedHeight.register(MY_WORLD_TYPE, -256, 319);        // по типу мира (только измерение 0)
 
-### Getting started
+// или на своём WorldProvider:
+public class MyProvider extends WorldProvider implements IExtendedHeightProvider {
+    public HeightRange getExtendedHeightRange() { return HeightRange.of(-256, 319); }
+}
 
-> [!WARNING]
-> Do not clone or fork this repository when creating a new mod. It contains files that are specific to this example project and are not part of the mod template. Use the [project starter](https://github.com/GTNewHorizons/ExampleMod1.7.10/releases/download/master-packages/starter.zip) instead.
+// чтение:
+HeightRange r = ExtendedHeight.getRange(world);   // HeightRange.VANILLA для обычных миров
+int minY = ExtendedHeight.getMinY(world);         // 0 в ванили
+int maxY = ExtendedHeight.getMaxY(world);         // 255 в ванили
+world.getHeight();                                // maxY + 1 для расширенного мира
+```
 
-Creating mod from scratch:
-1. Unzip [project starter](https://github.com/GTNewHorizons/ExampleMod1.7.10/releases/download/master-packages/starter.zip) into project directory.
-2. Replace placeholders in LICENSE-template and rename it to LICENSE, or remove LICENSE-template and put any other license you like on your code. This is an permissive OSS project and we encourage you participate in OSS movement by having permissive license like one in template. You can find out pros and cons of OSS software in [this article](https://www.freecodecamp.org/news/what-is-great-about-developing-open-source-and-what-is-not/)
-3. Ensure your project is under VCS. For example initialise git repository by running `git init; git commit --message "initialized repository"`.
-4. Replace placeholders (edit values in gradle.properties, change example package and class names, etc.)
-5. Run `./gradlew setupDecompWorkspace`
-6. Run `./gradlew build`
-6. Make sure to check out the rest sections of this file.
-7. You are good to go!
+### Ограничения диапазона
 
-We also have described guidelines for existing mod [migration](docs/migration.md) and [porting](docs/porting.md)
+- `minY` кратно 16, `minY ≤ 0`, `minY ≥ −512`;
+- `maxY + 1` кратно 16, `maxY ≥ 255`;
+- не больше 64 секций.
 
-### Features
+Ванильный диапазон 0…255 всегда внутри расширенного.
 
- - Updatable: Replace [`build.gradle`](https://github.com/GTNewHorizons/ExampleMod1.7.10/blob/main/build.gradle) with a newer version
- - Optional API artifact (.jar)
- - Optional version replacement in Java files
- - Optional shadowing of dependencies
- - Simplified setup of Mixin and example
- - Scala support (add sources under `src/main/scala/` instead of `src/main/java/`)
- - Optional named developer account for consistent player progression during testing
- - Boilerplate forge mod as starting point
- - Improved warnings for pitfalls
- - Git Tags integration for versioning
- - [Jitpack](https://jitpack.io) CI
- - GitHub CI:
-   - Releasing your artifacts on new tags pushed. Push git tag named after version (e.g. 1.0.0) which will trigger a release of artifacts with according names.
-   - Running smoke test for server startup. On any server crash occurring workflow will fail and print the crash log.
+### Когда диапазон применяется
 
-### Files
- - [`build.gradle`](https://github.com/GTNewHorizons/ExampleMod1.7.10/blob/main/build.gradle): This is the core script of the build process. You should not need to tamper with it, unless you are trying to accomplish something out of the ordinary. __Do not touch this file! You will make a future update near impossible if you do so!__
- - [`gradle.properties`](https://github.com/GTNewHorizons/ExampleMod1.7.10/blob/main/gradle.properties): The core configuration file. It includes
- - [`dependencies.gradle[.kts]`](https://github.com/GTNewHorizons/ExampleMod1.7.10/blob/main/dependencies.gradle): Add your mod's dependencies in this file. This is separate from the main build script, so you may replace the [`build.gradle`](https://github.com/SinTh0r4s/ExampleMod1.7.10/blob/main/build.gradle) if an update is available.
- - [`repositories.gradle[.kts]`](https://github.com/GTNewHorizons/ExampleMod1.7.10/blob/main/repositories.gradle): Add your dependencies' repositories. This is separate from the main build script, so you may replace the [`build.gradle`](https://github.com/SinTh0r4s/ExampleMod1.7.10/blob/main/build.gradle) if an update is available.
- - `addon.gradle[.kts]`: Any additional build logic. This is separate from the main build script, so you may replace the [`build.gradle`](https://github.com/SinTh0r4s/ExampleMod1.7.10/blob/main/build.gradle) if an update is available. See [Advanced](#advanced) for more details.
- - [`jitpack.yml`](https://github.com/GTNewHorizons/ExampleMod1.7.10/blob/main/jitpack.yml): Ensures that your mod is available as import over [Jitpack](https://jitpack.io).
- - [`.github/workflows/gradle.yml`](https://github.com/GTNewHorizons/ExampleMod1.7.10/blob/main/.github/workflows/gradle.yml): A simple CI script that will build your mod any time it is pushed to `master` or `main` and publish the result as release in your repository. This feature is free with GitHub if your repository is public.
+Диапазон фиксируется, **когда измерение создаётся впервые**, и записывается в `level.dat` (тег `ExtendedHeight`).
+Если ни одно измерение не расширено, тег не пишется. Дальше всегда действует сохранённый диапазон.
 
-### Forge's Access Transformers
+Если у измерения уже есть сохранённые чанки (непустые `*.mca` в папке `region` этого измерения), а записи в
+`level.dat` нет, оно **навсегда остаётся ванильным**: в лог пишется WARN, краша нет. Поэтому регистрироваться нужно
+в pre-init/init, а не позже.
 
-You may activate Forge's Access Transformers by defining a configuration file in `gradle.properties`.
+Приоритет запроса: `IExtendedHeightProvider` → регистрация по ID → регистрация по `WorldType` (для измерения 0).
 
-Check out the [`example-access-transformers`](https://github.com/GTNewHorizons/ExampleMod1.7.10/tree/example-access-transformers) branch for a working example!
+## Что нужно учесть генератору
 
-> [!WARNING]
-> Access Transformers are bugged and will deny you any sources for the decompiled Minecraft! Your development environment will still work, but you might face some inconveniences. For example, IntelliJ will not permit searches in dependencies without attached sources.
+Библиотека расширяет хранение и World API, но ванильный код генерации рассчитан на 0…255, и **библиотека его не
+чинит**. Если генератор (например, Reverworld) зовёт ванильные декораторы для частей мира ниже 0, нужно учитывать
+следующее. Здесь h — `world.getHeightValue(x, z)`; в расширенном мире h может быть ≤ 0.
 
-### Mixins
+**Падают (`IllegalArgumentException` из `Random.nextInt`) при h ≤ −32** — `nextInt(h + 32)` без защиты:
 
-[Mixins](https://github.com/SpongePowered/Mixin) are used to modify vanilla or mod/library code during runtime without having to edit, recompile, and redistribute the original code. For example, mixins can change a hardcoded value, redirect a method call, inject additional code, access private fields/methods, make a class implement your interface, and more. Mixins are an advanced feature which most normal mods will not require.
+- `BiomeGenForest.decorate` — цветы/кусты;
+- `BiomeGenPlains.decorate` — два вызова (цветы);
+- `BiomeGenSavanna.decorate` — высокая трава;
+- `BiomeGenTaiga.decorate` — папоротники/трава.
 
-Documentation about Mixin features can be found here: [Mixin Wiki](https://github.com/SpongePowered/Mixin/wiki) and [MixinExtras Wiki](https://github.com/LlamaLad7/MixinExtras/wiki)
+**Не падают, но ставят декорации на y 0…2h (никогда ниже 0, при h ≤ 0 — на y = 0)**. Эти методы идут через
+Forge-обёртку `BiomeDecorator.nextInt` (`i ≤ 1 → 0`):
 
-There are many examples of mixins in these mods: [Hodgepodge](https://github.com/GTNewHorizons/Hodgepodge) and [Angelica](https://github.com/GTNewHorizons/Angelica)
+- `BiomeDecorator.genDecorations`: цветы, трава, мёртвые кусты, кувшинки, грибы, тростник, тыквы, кактусы
+  (`nextInt(h × 2)` или `nextInt(h + 32)`);
+- `BiomeGenJungle.decorate`: дыни (своя защита Forge `height < 1 → 1`).
 
-To enable Mixins in your project, follow one of the example commits:
-- use [normal mixins](https://github.com/GTNewHorizons/ExampleMod1.7.10/commit/beba55615fa8337b7639f0d5b18db6cc8d4826be) for basic and quick registration
-- use [GTNH IMixins](https://github.com/GTNewHorizons/ExampleMod1.7.10/commit/055cd4f18765a421a86c706f53b62116988297e3) (recommended) for the same thing as below, but in a less verbose and more unified manner using the IMixins api
-- use [GTNH Early/Late mixins](https://github.com/GTNewHorizons/ExampleMod1.7.10/commit/c4df59d92164775b69451f3e690239e93d1fc979) to have full control over the registration logic and check for presence of other mods during runtime to load your mixins
+**Работают только в 0…255:**
 
-The extra required dependencies are handled automatically after mixins are enabled.
+- `BiomeDecorator.generateOres` / `genStandardOre1` / `genStandardOre2`: фиксированные интервалы (уголь 0…128,
+  алмазы 0…16 и т. д.);
+- `ChunkProviderGenerate.populate`: озёра, лавовые озёра, данжи (`nextInt(256)` и подобные);
+- `MapGenCaves`, `MapGenRavine`, ванильные структуры: работают с массивом `Block[]` высотой 256;
+- `BiomeDecorator`: песок, глина и гравий у воды — через `getTopSolidOrLiquidBlock`, то есть на верхней поверхности
+  колонки.
 
-### Advanced
+Что делать: для частей мира ниже 0 — свой декоратор или вызов ванильного с координатами, сдвинутыми в 0…255, а
+затем перенос результата. Деревья и большие грибы ставятся на h — это работает при любом h.
 
-If your project requires custom gradle commands you may add a `addon.gradle[.kts]` to your project. It will be added automatically to the build script. Although we recommend against it, it is sometimes required. When in doubt, feel free to ask us about it. You may break future updates of this build system!
-If you need access to properties modified later in the buildscript, you can also use a `addon.late.gradle[.kts]`.
-For local tweaks that you don't want to commit to Git, like adding extra JVM arguments for testing, use `addon[.late].local.gradle[.kts]`.
+## Известные ограничения
 
-### Feedback wanted
+- Моды, которые индексируют `chunk.getBlockStorageArray()[y >> 4]` напрямую, в расширенном мире промахиваются
+  при y < 0. Правильно — перебирать массив и брать `ebs.getYLocation()`.
+- Расширенное сохранение, открытое **без мода**, падает при загрузке чанков (ванильный загрузчик не знает секций
+  с Y < 0 и Y > 15).
+- `PathPoint.makeHash` упаковывает y в 8 бит; коллизия возможна только у точек на расстоянии 256 по вертикали,
+  что для поиска пути недостижимо.
 
-If you tried out this build script we would love to head your opinion! Is there any feature missing for you? Did something not work? Please open an issue and we will try to resolve it asap!
+## Совместимость
 
-Happy modding,\
-[SinTh0r4s](https://github.com/SinTh0r4s), [TheElan](https://github.com/TheElan) and [basdxz](https://github.com/basdxz)
+Предварительный список, проверка будет в вехе 5: OptiFine, FastCraft, Angelica (свои рендереры и свет),
+ArchaicFix/Hodgepodge/CoreTweaks (миксины в `Chunk` и свет), NotEnoughIDs/EndlessIDs/ChunkAPI (формат секций и
+пакетов чанков). Цель — как минимум не ломать миры без расширения.
+
+## Разработка и тесты
+
+- `gradlew test` — юнит-тесты (индексация секций, ограничения диапазона).
+- `powershell -ExecutionPolicy Bypass -File scripts/selftest.ps1` — серверный самотест: четыре запуска dev-сервера
+  (базовый без миксинов, мод без расширенных миров, запись в расширенное измерение, перезапуск и чтение).
+  Отчёты лежат в `run/selftest/*/selftest-result-*.txt`. Тестовые измерения 4242/4244 регистрируются только при
+  наличии файла `extendedheight-selftest.properties` в рабочей папке сервера.

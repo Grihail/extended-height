@@ -1,0 +1,22 @@
+{
+  "required": true,
+  "minVersion": "0.8.5-GTNH",
+  "package": "io.github.extendedheight.mixins",
+  "plugin": "io.github.extendedheight.core.MixinPlugin",
+  "refmap": "mixins.extendedheight.refmap.json",
+  "target": "@env(DEFAULT)",
+  "compatibilityLevel": "JAVA_8",
+  "injectors": {
+    "defaultRequire": 1
+  },
+  "mixins": [
+    "early.DerivedWorldInfoAccessor",
+    "early.MixinAnvilChunkLoader",
+    "early.MixinChunk",
+    "early.MixinWorld",
+    "early.MixinWorldInfo",
+    "early.MixinWorldProvider"
+  ],
+  "client": [],
+  "server": []
+}
