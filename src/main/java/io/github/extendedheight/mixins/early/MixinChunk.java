@@ -1,6 +1,7 @@
 package io.github.extendedheight.mixins.early;
 
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.List;
 
 import net.minecraft.block.Block;
@@ -24,10 +25,11 @@ import org.spongepowered.asm.mixin.injection.callback.CallbackInfoReturnable;
 
 import io.github.extendedheight.api.ExtendedHeight;
 import io.github.extendedheight.api.HeightRange;
+import io.github.extendedheight.core.IExtendedHeightChunk;
 
 /** Хранилище чанка: слот на секцию диапазона, индекс y >> 4 сдвинут на нижнюю секцию; у ванили сдвиг 0 */
 @Mixin(Chunk.class)
-public abstract class MixinChunk {
+public abstract class MixinChunk implements IExtendedHeightChunk {
 
     private static final String STORAGE = "Lnet/minecraft/world/chunk/Chunk;storageArrays:[Lnet/minecraft/world/chunk/storage/ExtendedBlockStorage;";
 
@@ -46,6 +48,15 @@ public abstract class MixinChunk {
     private int eh$minY = 0;
     @Unique
     private int eh$maxY = 255;
+    @Unique
+    private HeightRange eh$range = HeightRange.VANILLA;
+    @Shadow
+    private int queuedLightChecks;
+
+    @Override
+    public HeightRange eh$getRange() {
+        return eh$range;
+    }
 
     @Inject(method = "<init>(Lnet/minecraft/world/World;II)V", at = @At("RETURN"))
     private void eh$sizeStorage(World world, int x, int z, CallbackInfo ci) {
@@ -56,6 +67,10 @@ public abstract class MixinChunk {
         if (range.isVanilla()) {
             return;
         }
+        eh$range = range;
+        // «Нет блока в столбце» — minY (ваниль 0); «проверки света готовы» — секции * 256 (ваниль 4096)
+        Arrays.fill(heightMap, range.minY);
+        queuedLightChecks = range.sectionCount() * 256;
         eh$minSection = range.minSection();
         eh$minY = range.minY;
         eh$maxY = range.maxY;

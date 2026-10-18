@@ -136,20 +136,26 @@ public final class SelfTest {
                 editOverworld();
                 saveAll();
                 snapshotAndCompare(true);
+                // После снимка: бенчмарк правит измерение 0
+                benchOverworld();
                 break;
             case "write":
                 editOverworld();
                 checkOverworldStaysVanilla();
                 writeExtended();
                 writeLateDimension();
+                new LightTests(this, extWorld()).runWrite();
                 saveAll();
                 snapshotAndCompare(false);
                 checkSavedSections();
                 checkLevelDat();
+                benchOverworld();
+                benchExtended();
                 break;
             case "verify":
                 verifyExtended();
                 verifyLateDimension();
+                new LightTests(this, extWorld()).runVerify();
                 checkSavedSections();
                 checkLevelDat();
                 break;
@@ -487,9 +493,41 @@ public final class SelfTest {
         return out.toByteArray();
     }
 
+    // ---- бенчмарк ----
+
+    /** Одна область и высоты во всех фазах для сравнимости */
+    private void benchOverworld() {
+        WorldServer world = server.worldServerForDimension(0);
+        bench("overworld getBlock y 0..255", Bench.getBlock(world, 0, 0, 0, 255));
+        bench("overworld setBlock y=100", Bench.setBlock(world, 4, 4, 100));
+    }
+
+    private void benchExtended() {
+        WorldServer world = extWorld();
+        bench("extended getBlock y 0..255", Bench.getBlock(world, 12, 12, 0, 255));
+        bench("extended getBlock y -256..319", Bench.getBlock(world, 12, 12, -256, 319));
+        bench("extended setBlock y=100", Bench.setBlock(world, 16, 16, 100));
+        bench("extended setBlock y=-200", Bench.setBlock(world, 16, 16, -200));
+    }
+
+    /** result = {медиана, минимум} в нс на операцию */
+    private void bench(String name, double[] result) {
+        lines.add(
+            String.format(
+                java.util.Locale.ROOT,
+                "BENCH %s: median %.2f ns/op, min %.2f ns/op",
+                name,
+                result[0],
+                result[1]));
+    }
+
     // ---- отчёт ----
 
-    private void check(String name, boolean ok, Object actual) {
+    void info(String message) {
+        log(message);
+    }
+
+    void check(String name, boolean ok, Object actual) {
         if (ok) {
             lines.add("PASS " + name);
         } else {

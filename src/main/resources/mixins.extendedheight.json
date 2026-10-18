@@ -13,10 +13,14 @@
     "early.DerivedWorldInfoAccessor",
     "early.MixinAnvilChunkLoader",
     "early.MixinChunk",
+    "early.MixinChunkLight",
     "early.MixinWorld",
     "early.MixinWorldInfo",
     "early.MixinWorldProvider"
   ],
-  "client": [],
+  "client": [
+    "early.client.MixinChunkClient",
+    "early.client.MixinWorldClientLight"
+  ],
   "server": []
 }

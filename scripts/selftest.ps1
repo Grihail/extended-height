@@ -66,6 +66,7 @@ function Invoke-Phase([string]$dirName, [string]$phase, [hashtable]$extra, [bool
         return $false
     }
     $lines = Get-Content $result
+    $lines | Where-Object { $_ -like 'INFO*' -or $_ -like 'BENCH*' } | ForEach-Object { Write-Host "  $_" }
     $lines | Where-Object { $_ -like 'FAIL*' } | ForEach-Object { Write-Host "  $_" -ForegroundColor Red }
     $passed = ($lines | Where-Object { $_ -like 'PASS*' }).Count
     $ok = $lines[-1] -eq 'OVERALL: PASS'
