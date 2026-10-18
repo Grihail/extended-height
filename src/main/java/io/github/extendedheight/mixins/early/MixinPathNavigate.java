@@ -12,10 +12,12 @@ import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.Shadow;
 import org.spongepowered.asm.mixin.injection.At;
 import org.spongepowered.asm.mixin.injection.Inject;
+import org.spongepowered.asm.mixin.injection.ModifyVariable;
 import org.spongepowered.asm.mixin.injection.Redirect;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfoReturnable;
 
 import io.github.extendedheight.api.ExtendedHeight;
+import io.github.extendedheight.core.EhMath;
 
 /** Мобы ниже 0 стояли: (int)-касты в PathNavigate заменены на floor в расширенных мирах */
 @Mixin(PathNavigate.class)
@@ -64,5 +66,17 @@ public abstract class MixinPathNavigate {
             return minY;
         }
         return Math.floor(minY + 0.5D) - 0.5D;
+    }
+
+    /** Целевой y getPathToXYZ/tryMoveToXYZ ниже 0 заменён на floor */
+    @ModifyVariable(
+        method = { "getPathToXYZ", "tryMoveToXYZ" },
+        at = @At("HEAD"),
+        ordinal = 1,
+        argsOnly = true,
+        require = 2,
+        allow = 2)
+    private double eh$targetY(double y) {
+        return EhMath.yForIntCast(worldObj, y);
     }
 }

@@ -14,6 +14,7 @@ import net.minecraft.network.PacketBuffer;
 import net.minecraft.network.play.client.C07PacketPlayerDigging;
 import net.minecraft.network.play.client.C08PacketPlayerBlockPlacement;
 import net.minecraft.network.play.server.S23PacketBlockChange;
+import net.minecraft.network.play.server.S28PacketEffect;
 
 import com.google.common.collect.BiMap;
 
@@ -29,14 +30,16 @@ public final class ExtPackets {
     public static final int S_MAP_CHUNK_BULK = 0x61;
     public static final int S_MULTI_BLOCK_CHANGE = 0x62;
     public static final int S_BLOCK_CHANGE = 0x63;
+    public static final int S_EFFECT = 0x64;
     public static final int S_HEIGHT_TABLE = 0x66;
     public static final int C_DIGGING = 0x60;
     public static final int C_PLACEMENT = 0x61;
 
     /** Слоты счётчиков самотеста: создано/заменено на отправителе и обработано на получателе */
-    public static final int CHUNK = 0, BULK = 1, MULTI = 2, BLOCK = 3, TABLE = 4, DIGGING = 5, PLACEMENT = 6;
+    public static final int CHUNK = 0, BULK = 1, MULTI = 2, BLOCK = 3, TABLE = 4, DIGGING = 5, PLACEMENT = 6,
+        EFFECT = 7;
     public static final String[] NAMES = { "ExtChunkData", "ExtMapChunkBulk", "ExtMultiBlockChange", "ExtBlockChange",
-        "HeightTableSync", "ExtPlayerDigging", "ExtBlockPlacement" };
+        "HeightTableSync", "ExtPlayerDigging", "ExtBlockPlacement", "ExtEffect" };
     public static final AtomicIntegerArray SENT = new AtomicIntegerArray(NAMES.length);
     public static final AtomicIntegerArray RECEIVED = new AtomicIntegerArray(NAMES.length);
 
@@ -60,6 +63,7 @@ public final class ExtPackets {
             SPacketExtMultiBlockChange.class,
             "SERVER->CLIENT");
         registerOne(play.func_150755_b(), byClass, S_BLOCK_CHANGE, SPacketExtBlockChange.class, "SERVER->CLIENT");
+        registerOne(play.func_150755_b(), byClass, S_EFFECT, SPacketExtEffect.class, "SERVER->CLIENT");
         registerOne(play.func_150755_b(), byClass, S_HEIGHT_TABLE, SPacketHeightTable.class, "SERVER->CLIENT");
         registerOne(play.func_150753_a(), byClass, C_DIGGING, CPacketExtDigging.class, "CLIENT->SERVER");
         registerOne(play.func_150753_a(), byClass, C_PLACEMENT, CPacketExtPlacement.class, "CLIENT->SERVER");
@@ -132,6 +136,17 @@ public final class ExtPackets {
                     && ExtendedHeight.isExtended(h.playerEntity.worldObj)) {
                     packet = SPacketExtBlockChange.copyOf(p);
                     SENT.incrementAndGet(BLOCK);
+                }
+            }
+        } else if (type == S28PacketEffect.class) {
+            if (handler instanceof NetHandlerPlayServer) {
+                S28PacketEffect p = (S28PacketEffect) packet;
+                NetHandlerPlayServer h = (NetHandlerPlayServer) handler;
+                int y = SPacketExtEffect.y(p);
+                if ((y < 0 || y > 255) && h.playerEntity != null
+                    && ExtendedHeight.isExtended(h.playerEntity.worldObj)) {
+                    packet = SPacketExtEffect.copyOf(p);
+                    SENT.incrementAndGet(EFFECT);
                 }
             }
         } else if (type == C07PacketPlayerDigging.class) {

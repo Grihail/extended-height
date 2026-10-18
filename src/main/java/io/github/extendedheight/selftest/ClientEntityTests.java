@@ -5,10 +5,12 @@ import java.util.List;
 import java.util.Map;
 import java.util.Queue;
 
+import net.minecraft.block.Block;
 import net.minecraft.client.Minecraft;
 import net.minecraft.entity.Entity;
 import net.minecraft.entity.item.EntityItem;
 import net.minecraft.entity.item.EntityTNTPrimed;
+import net.minecraft.entity.passive.EntityBat;
 import net.minecraft.entity.passive.EntityCow;
 import net.minecraft.entity.player.EntityPlayerMP;
 import net.minecraft.init.Blocks;
@@ -16,7 +18,12 @@ import net.minecraft.init.Items;
 import net.minecraft.inventory.IInventory;
 import net.minecraft.item.ItemStack;
 import net.minecraft.util.AxisAlignedBB;
+import net.minecraft.util.ChunkCoordinates;
 import net.minecraft.world.WorldServer;
+
+import io.github.extendedheight.mixins.early.ycast.BatAccessor;
+import io.github.extendedheight.net.ExtPackets;
+import io.github.extendedheight.net.SPacketExtEffect;
 
 /** Сущности ниже 0 в комнате y -100..-97: предметы, TNT, коровы; клиент сверяется со снимком сервера */
 final class ClientEntityTests {
@@ -54,6 +61,12 @@ final class ClientEntityTests {
     private volatile int cowId = -1, temptCowId = -1;
     private volatile double cowStartX, cowStartZ, temptStartDist;
     private volatile boolean pathFound;
+    private volatile int batId = -1;
+    private volatile boolean batHanging;
+    private volatile int flyingBatId = -1;
+    /** Тики наблюдения летающей мыши и сколько раз менялась её цель */
+    private int flyingTicks, flyingTargetChanges;
+    private ChunkCoordinates lastTarget;
 
     /** Результаты наблюдения на клиенте */
     private int tntTicksSeen, tntTicksMissing, tntTicksWrongPos;
@@ -188,6 +201,17 @@ final class ClientEntityTests {
                 snap.put(e.getEntityId(), new Snap(e));
             }
         }
+        Entity flying = world.getEntityByID(flyingBatId);
+        if (flying instanceof EntityBat && !((EntityBat) flying).getIsBatHanging()) {
+            ChunkCoordinates target = ((BatAccessor) flying).eh$getSpawnPosition();
+            flyingTicks++;
+            if (target != null && lastTarget != null && !target.equals(lastTarget)) {
+                flyingTargetChanges++;
+            }
+            lastTarget = target == null ? null : new ChunkCoordinates(target);
+        }
+        Entity bat = world.getEntityByID(batId);
+        batHanging = bat instanceof EntityBat && ((EntityBat) bat).getIsBatHanging();
         Entity tnt = world.getEntityByID(tntId);
         if (tntId >= 0 && tnt == null && world.getBlock(x0 - 7, Y - 1, z0 - 7) == Blocks.air) {
             tntExploded = true;
@@ -234,6 +258,37 @@ final class ClientEntityTests {
             EntityPlayerMP player = player();
             temptStartDist = c.getDistanceToEntity(player);
             player.inventory.mainInventory[player.inventory.currentItem] = new ItemStack(Items.wheat);
+
+            // Мышь под потолком в блок: с ванильным (int) она проверяет блок на два выше и падает
+            for (int x = x0 - 8; x <= x0 - 5; x++) {
+                for (int z = z0 + 4; z <= z0 + 7; z++) {
+                    world.setBlock(x, Y + 5, z, Blocks.air, 0, 3);
+                }
+            }
+            EntityBat bat = new EntityBat(world);
+            bat.setLocationAndAngles(x0 - 6.5D, Y + 4 - bat.height, z0 + 5.5D, 0, 0);
+            bat.setIsBatHanging(true);
+            world.spawnEntityInWorld(bat);
+            batId = bat.getEntityId();
+
+            // Мышь в полости 11^3: ваниль отбрасывает цели ниже y 1, мышь дёргалась на полу
+            int fx = x0 + 25;
+            for (int x = fx - 5; x <= fx + 5; x++) {
+                for (int z = z0 - 5; z <= z0 + 5; z++) {
+                    for (int y = Y - 5; y <= Y + 5; y++) {
+                        world.setBlock(x, y, z, Blocks.air, 0, 3);
+                    }
+                }
+            }
+            EntityBat flying = new EntityBat(world);
+            flying.setLocationAndAngles(fx + 0.5D, Y + 0.5D, z0 + 0.5D, 0, 0);
+            flying.setIsBatHanging(false);
+            world.spawnEntityInWorld(flying);
+            flyingBatId = flying.getEntityId();
+
+            // Частицы разрушения блока ниже 0 (S28 -> ExtEffect)
+            SPacketExtEffect.lastReceivedY = Integer.MIN_VALUE;
+            world.playAuxSFX(2001, x0, Y, z0 + 2, Block.getIdFromBlock(Blocks.stone));
         });
     }
 
@@ -245,6 +300,18 @@ final class ClientEntityTests {
                 + " -> < 4)",
             cow != null && dist < 4.0D,
             dist);
+        report.check(
+            "bat hanging under a 1-block ceiling at y -96 stays there (block above checked with floor)",
+            batHanging,
+            null);
+        report.check(
+            "flying bat at y -100 keeps its flight target (changes < half of the ticks; vanilla: every tick)",
+            flyingTicks > 60 && flyingTargetChanges < flyingTicks / 2,
+            flyingTargetChanges + " changes in " + flyingTicks + " ticks");
+        report.check(
+            "block break effect at y -100 reaches the client through ExtEffect with y -100",
+            SPacketExtEffect.lastReceivedY == Y && ExtPackets.RECEIVED.get(ExtPackets.EFFECT) >= 1,
+            SPacketExtEffect.lastReceivedY + ", received " + ExtPackets.RECEIVED.get(ExtPackets.EFFECT));
         Entity client = mc.theWorld.getEntityByID(temptCowId);
         report.check(
             "tempted cow: client position matches the server",
