@@ -198,7 +198,7 @@ ExtBlockChange` — игра не стартует, тихой перезапи�
 | 8.2 | Populate | Работает через `World.getBlock`/`setBlock` | Чинится через раздел 2. | Низкий |
 | 8.3 | Ванильный `BiomeDecorator` и `BiomeGen*.decorate` | (а) `BiomeDecorator.genDecorations`: `nextInt(h × 2)` / `nextInt(h + 32)` идут через Forge-обёртку `nextInt` (`i ≤ 1 → 0`). Краша нет, но при h ≤ 0 декорации ставятся на y = 0 и никогда ниже 0. (б) `BiomeGenForest`, `BiomeGenPlains`, `BiomeGenSavanna`, `BiomeGenTaiga` в `decorate()` зовут **сырой** `Random.nextInt(h + 32)` → **`IllegalArgumentException` при h ≤ −32**. `BiomeGenJungle` защищён Forge. (в) `generateOres` и озёра/данжи `ChunkProviderGenerate` работают только в 0…255. | Библиотека не патчит: это ответственность генератора. Подробный список с методами — в README, раздел «Что нужно учесть генератору». | Высокий для Reverworld |
 | 8.4 | `BlockFalling` / `BlockDragonEgg` (`fallInstantly` во время генерации) | `y >= 0`, `while (y > 0)` | `minY`. | Низкий |
-| 8.5 | `BlockPistonBase` (`canPushBlock`, `tryExtend`) | `j1 <= 0 \|\| j1 >= getHeight()` | `minY`/`maxY`. Иначе поршни не толкают на y ≤ 0. | Низкий |
+| 8.5 | `BlockPistonBase` (`canExtend`, `tryExtend`) | `j1 <= 0 \|\| j1 >= getHeight()` | **Сделано** (`MixinPistonY`, найдено в игре: ниже 0 поршни не выдвигались вообще): нижняя граница — `minY`, верхняя уже шла через `getHeight()` (2.14). Самотестом не проверено, проверка в игре. | Низкий |
 | 8.6 | `BlockLilyPad.canBlockStay`, `BlockMushroom.canBlockStay` | `y >= 0 && y < 256` | Границы мира. | Низкий |
 | 8.7 | `BlockDoor.canPlaceBlockAt`, `TileEntityBeacon` | `getHeight()` | Чинится через 2.14. | — |
 | 8.8 | Forge `BlockFluidFinite` | `otherY < 0 \|\| otherY >= getHeight()` | `minY`. | Низкий |
@@ -409,6 +409,14 @@ write, измерение 4242. **Контроль:** с выключенным�
 (биом колонки), от 256 Ice Plains; в чанке (0, 0) демо-площадки с травой, листвой (мета 4, не опадает) и водой на
 поверхности (y 63), в освещённой полости на y −40 (шахта 2×2 на x/z 12…13) и на платформе на y 270. Проверка —
 `ClientSelfTest.checkBiomesDemo` (ответы по высоте, площадки в сгенерированном чанке).
+
+## Выход из воды ниже 0 (найдено в игре)
+
+`World.isAnyLiquid` и `checkBlockCollision`: после `floor` при `minY < 0` берётся ещё один блок ниже. Чтобы выпрыгнуть из
+воды, сущность проверяет (`Entity.isOffsetPositionInLiquid`), что поднятый над краем хитбокс не задевает жидкость; ниже 0
+лишний блок под ним — сам водоём, поэтому игрок и мобы не могли выйти из лужи глубиной в 1 блок. `MixinWorldLiquidY`: в
+расширенном мире сравнение по y не срабатывает (константа `0.0D` с ordinal 1 по байткоду); поправки по x/z — ванильные.
+Самотестом не проверено, проверка в игре.
 
 ## Округление высоты: `(int)` → `floor`
 
