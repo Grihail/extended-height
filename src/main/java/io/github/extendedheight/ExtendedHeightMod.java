@@ -15,6 +15,7 @@ import cpw.mods.fml.common.event.FMLServerStartedEvent;
 import cpw.mods.fml.common.network.NetworkCheckHandler;
 import cpw.mods.fml.relauncher.Side;
 import io.github.extendedheight.client.ClientRanges;
+import io.github.extendedheight.core.EhConfig;
 import io.github.extendedheight.core.MixinPlugin;
 import io.github.extendedheight.net.ExtPackets;
 import io.github.extendedheight.selftest.SelfTest;
@@ -36,6 +37,7 @@ public class ExtendedHeightMod {
             LOG.warn("Self-test mode, phase {} (mixins disabled: {})", SelfTest.phase(), MixinPlugin.mixinsDisabled());
             SelfTest.preInit();
         }
+        EhConfig.load(event.getSuggestedConfigurationFile());
         if (!MixinPlugin.mixinsDisabled()) {
             ExtPackets.register();
             WorldTypeExtendedTest.register();
@@ -48,7 +50,7 @@ public class ExtendedHeightMod {
 
     @Mod.EventHandler
     public void loadComplete(FMLLoadCompleteEvent event) {
-        if (SelfTest.isActive() && "client-audit".equals(SelfTest.phase())
+        if (SelfTest.isActive() && SelfTest.isClientPhase()
             && FMLCommonHandler.instance()
                 .getSide()
                 .isClient()) {
@@ -59,7 +61,7 @@ public class ExtendedHeightMod {
     @Mod.EventHandler
     public void serverStarted(FMLServerStartedEvent event) {
         // В клиентской фазе это встроенный сервер тестового мира: тест ведёт клиентская часть
-        if (SelfTest.isActive() && !"client-audit".equals(SelfTest.phase())) {
+        if (SelfTest.isActive() && !SelfTest.isClientPhase()) {
             SelfTest.serverStarted(MinecraftServer.getServer());
         }
     }

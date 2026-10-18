@@ -30,6 +30,9 @@ import cpw.mods.fml.relauncher.Side;
 import io.github.extendedheight.ExtendedHeightMod;
 import io.github.extendedheight.api.ExtendedHeight;
 import io.github.extendedheight.api.HeightRange;
+import io.github.extendedheight.client.VoidStats;
+import io.github.extendedheight.core.EhConfig;
+import io.github.extendedheight.mixins.early.client.EntityRendererAccessor;
 import io.github.extendedheight.net.ChunkCodec;
 import io.github.extendedheight.net.ExtPackets;
 import io.github.extendedheight.world.WorldTypeExtendedTest;
@@ -51,6 +54,7 @@ public final class ClientSelfTest {
     private int bx, bz;
     /** Ожидаемые блоки сервера после правок: "x,y,z" -> блок */
     private final Map<String, Block> expected = new HashMap<>();
+    private ClientEntityTests entities;
 
     private ClientSelfTest(SelfTest report) {
         this.report = report;
@@ -203,6 +207,32 @@ public final class ClientSelfTest {
                 compareExpected(mc, "player dig/place at y 299/300 (extended C07/C08)");
                 checkCounter("ExtPlayerDigging", ExtPackets.DIGGING, 2);
                 checkCounter("ExtBlockPlacement", ExtPackets.PLACEMENT, 2);
+                entities = new ClientEntityTests(report, serverTasks, serverWorld(mc), bx + 40, bz);
+                entities.buildRoom();
+                return true;
+            case 9:
+                if (stepTicks < SETTLE_TICKS || !clientChunksAround(mc, 1)) {
+                    return false;
+                }
+                checkPlayerAt(mc, ClientEntityTests.Y);
+                checkVoidEffects(mc);
+                entities.spawnEntities();
+                return true;
+            case 10:
+                // Фитиль TNT 80 тиков; наблюдаем до взрыва на сервере
+                entities.observe(mc);
+                if (!entities.tntDone()) {
+                    return false;
+                }
+                entities.checkItemsAndTnt();
+                entities.checkPathCowAndStartTempt();
+                return true;
+            case 11:
+                entities.observe(mc);
+                if (stepTicks < 160) {
+                    return false;
+                }
+                entities.checkTempt(mc);
                 report.info("extended packets sent/received: " + counters());
                 finish(mc);
                 return true;
@@ -338,37 +368,17 @@ public final class ClientSelfTest {
         expected.put(x + "," + y + "," + z, block);
     }
 
-    /** Одиночные изменения в двух чанках (S23), пять в третьем (S22), 80 в четвёртом (частичный S21) */
+    /** Серверные правки {@link NetEdits} вокруг чанка игрока */
     private void scheduleServerEdits(Minecraft mc) {
-        int cx = bx >> 4, cz = bz >> 4;
-        int ax = (cx + 1) * 16 + 4, az = cz * 16 + 4;
-        int b2x = (cx - 1) * 16 + 4, b2z = cz * 16 + 4;
-        int mx = cx * 16 + 4, mz = (cz + 1) * 16 + 4;
-        int px = cx * 16, pz = (cz - 1) * 16;
+        List<NetEdits.Edit> edits = NetEdits.serverEdits(bx, bz);
         expected.clear();
-        expect(ax, -100, az, Blocks.glowstone);
-        expect(b2x, 300, b2z, Blocks.stone);
-        for (int i = 0; i < 5; i++) {
-            expect(mx, -50 + i, mz, Blocks.glass);
+        for (NetEdits.Edit e : edits) {
+            expect(e.x, e.y, e.z, e.block);
         }
-        for (int x = 0; x < 16; x++) {
-            for (int z = 0; z < 5; z++) {
-                expect(px + x, -30, pz + z, Blocks.air);
-            }
-        }
-        final Map<String, Block> edits = new HashMap<>(expected);
         WorldServer world = serverWorld(mc);
         serverTasks.add(() -> {
-            for (Map.Entry<String, Block> e : edits.entrySet()) {
-                String[] p = e.getKey()
-                    .split(",");
-                world.setBlock(
-                    Integer.parseInt(p[0]),
-                    Integer.parseInt(p[1]),
-                    Integer.parseInt(p[2]),
-                    e.getValue(),
-                    0,
-                    3);
+            for (NetEdits.Edit e : edits) {
+                world.setBlock(e.x, e.y, e.z, e.block, 0, 3);
             }
         });
     }
@@ -393,6 +403,47 @@ public final class ClientSelfTest {
             player.fallDistance = 0;
             player.playerNetServerHandler.setPlayerLocation(x + 0.5D, y, z + 0.5D, 0, 0);
         });
+    }
+
+    /** Затемнение и частицы пустоты на y -100 с конфигом по умолчанию */
+    private void checkVoidEffects(Minecraft mc) {
+        EntityRendererAccessor fog = (EntityRendererAccessor) mc.entityRenderer;
+        float sum = fog.eh$getFogRed() + fog.eh$getFogGreen() + fog.eh$getFogBlue();
+        report.check("default config: fog colour at y -100 is not black (no void darkening)", sum > 0.05F, sum);
+
+        int x = MathHelper.floor_double(mc.thePlayer.posX), z = MathHelper.floor_double(mc.thePlayer.posZ);
+        boolean followMinY = EhConfig.voidParticlesFollowMinY;
+        double intensity = EhConfig.voidParticleIntensity;
+        try {
+            int defaults = voidParticles(mc, x, z);
+            EhConfig.voidParticleIntensity = 1.0D;
+            int full = voidParticles(mc, x, z);
+            report.check(
+                "default config: void particles at y -100, about half of intensity 1",
+                defaults > 0 && defaults < full * 0.75D && defaults > full * 0.25D,
+                defaults + " vs " + full);
+            EhConfig.voidParticlesFollowMinY = true;
+            int followed = voidParticles(mc, x, z);
+            report.check(
+                "voidParticlesFollowMinY: no void particles at y -100 (zone is below minY + 8)",
+                followed == 0,
+                followed);
+            EhConfig.voidParticlesFollowMinY = false;
+            EhConfig.voidParticleIntensity = 0.0D;
+            int none = voidParticles(mc, x, z);
+            report.check("voidParticleIntensity 0: no void particles", none == 0, none);
+        } finally {
+            EhConfig.voidParticlesFollowMinY = followMinY;
+            EhConfig.voidParticleIntensity = intensity;
+        }
+    }
+
+    private static int voidParticles(Minecraft mc, int x, int z) {
+        int before = VoidStats.particles;
+        for (int i = 0; i < 20; i++) {
+            mc.theWorld.doVoidFogParticles(x, ClientEntityTests.Y + 1, z);
+        }
+        return VoidStats.particles - before;
     }
 
     private void checkPlayerAt(Minecraft mc, int y) {

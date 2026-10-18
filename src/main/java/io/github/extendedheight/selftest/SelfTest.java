@@ -72,6 +72,17 @@ public final class SelfTest {
         return config() != null;
     }
 
+    /** Фазы под управлением клиента: client-audit, net-client и net-nomod */
+    public static boolean isClientPhase() {
+        String p = phase();
+        return "client-audit".equals(p) || "net-client".equals(p) || "net-nomod".equals(p);
+    }
+
+    /** Фаза net-nomod: клиент скрывает мод в рукопожатии FML */
+    public static boolean hidesModInHandshake() {
+        return "net-nomod".equals(phase());
+    }
+
     public static String phase() {
         return config() == null ? null : config().getProperty("phase");
     }
@@ -113,6 +124,14 @@ public final class SelfTest {
     /** Вызывается при старте сервера: выполняет фазу, пишет отчёт и останавливает сервер */
     public static void serverStarted(MinecraftServer server) {
         SelfTest test = new SelfTest(server, phase());
+        if ("net-server".equals(phase())) {
+            // Ждёт сетевых клиентов; отчёт и остановку делает NetServerSelfTest
+            test.environment();
+            Throwable error = MixinAudit.run();
+            test.check("mixin audit (all targets found, all injections applied)", error == null, error);
+            NetServerSelfTest.start(test, server);
+            return;
+        }
         try {
             test.run();
         } catch (Throwable t) {
@@ -132,8 +151,12 @@ public final class SelfTest {
         if (error != null) {
             ExtendedHeightMod.LOG.error("Mixin audit failed", error);
         }
-        // Продолжение по клиентским тикам: одиночный мир, затем отчёт и закрытие игры
-        ClientSelfTest.start(test);
+        // Продолжение по клиентским тикам: мир (или выделенный сервер), затем отчёт и закрытие игры
+        if (phase().startsWith("net-")) {
+            NetClientSelfTest.start(test, config().getProperty("server"), "net-nomod".equals(phase()));
+        } else {
+            ClientSelfTest.start(test);
+        }
     }
 
     private void environment() {

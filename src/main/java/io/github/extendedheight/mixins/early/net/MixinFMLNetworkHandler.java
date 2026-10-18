@@ -10,6 +10,7 @@ import org.spongepowered.asm.mixin.injection.callback.CallbackInfoReturnable;
 import cpw.mods.fml.common.network.internal.FMLNetworkHandler;
 import cpw.mods.fml.relauncher.Side;
 import io.github.extendedheight.ExtendedHeightMod;
+import io.github.extendedheight.selftest.NetServerSelfTest;
 
 /** Понятная причина отказа клиенту без мода в рукопожатии FML (5.13); решение — в checkRemote */
 @Mixin(value = FMLNetworkHandler.class, remap = false)
@@ -27,6 +28,9 @@ public abstract class MixinFMLNetworkHandler {
         String reason = ExtendedHeightMod.rejectionReason(remoteMods, remoteSide);
         if (cir.getReturnValue() != null && reason != null) {
             cir.setReturnValue(reason + " (" + cir.getReturnValue() + ")");
+        }
+        if (remoteSide == Side.CLIENT && cir.getReturnValue() != null) {
+            NetServerSelfTest.lastRejection = cir.getReturnValue();
         }
     }
 }

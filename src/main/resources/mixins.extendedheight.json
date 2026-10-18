@@ -18,6 +18,8 @@
     "early.MixinEntityVoid",
     "early.MixinItemBlock",
     "early.MixinMinecartVoid",
+    "early.MixinPathFinder",
+    "early.MixinPathNavigate",
     "early.MixinWorld",
     "early.MixinWorldInfo",
     "early.MixinWorldProvider",
@@ -25,6 +27,7 @@
     "early.net.C08Accessor",
     "early.net.MixinEntityPlayerMP",
     "early.net.MixinFMLNetworkHandler",
+    "early.net.MixinHandshakeModList",
     "early.net.MixinNetHandlerPlayServer",
     "early.net.MixinNetworkManager",
     "early.net.MixinPlayerInstance",
@@ -32,13 +35,17 @@
     "early.net.S23Accessor"
   ],
   "client": [
+    "early.client.EntityRendererAccessor",
     "early.client.MixinChunkCacheClient",
     "early.client.MixinChunkClient",
+    "early.client.MixinEntityPosition",
+    "early.client.MixinEntityRendererVoidFog",
     "early.client.MixinNetHandlerPlayClient",
     "early.client.MixinRenderGlobal",
     "early.client.MixinWorldClient",
     "early.client.MixinWorldClientInit",
     "early.client.MixinWorldClientLight",
+    "early.client.MixinWorldClientVoid",
     "early.client.WorldClientAccessor"
   ],
   "server": []
