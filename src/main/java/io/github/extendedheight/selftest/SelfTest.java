@@ -39,6 +39,7 @@ import io.github.extendedheight.ExtendedHeightMod;
 import io.github.extendedheight.api.ExtendedHeight;
 import io.github.extendedheight.api.HeightRange;
 import io.github.extendedheight.core.IExtendedHeightWorld;
+import io.github.extendedheight.core.MixinPlugin;
 
 /** Серверный самотест для scripts/selftest.ps1: фазы baseline, vanilla-mod, write, verify */
 public final class SelfTest {
@@ -122,8 +123,34 @@ public final class SelfTest {
         server.initiateShutdown();
     }
 
+    /** Клиентская проверка client-audit: применяет все миксины клиента и пишет отчёт */
+    public static void clientAudit() {
+        SelfTest test = new SelfTest(null, phase());
+        test.environment();
+        Throwable error = MixinAudit.run();
+        test.check("mixin audit (all targets found, all injections applied)", error == null, error);
+        if (error != null) {
+            ExtendedHeightMod.LOG.error("Mixin audit failed", error);
+        }
+        // Продолжение по клиентским тикам: одиночный мир, затем отчёт и закрытие игры
+        ClientSelfTest.start(test);
+    }
+
+    private void environment() {
+        Object deobf = net.minecraft.launchwrapper.Launch.blackboard.get("fml.deobfuscatedEnvironment");
+        log("environment: " + (Boolean.TRUE.equals(deobf) ? "dev (deobfuscated)" : "OBFUSCATED (production-like)"));
+    }
+
     private void run() throws Exception {
         log("phase " + phase);
+        environment();
+        if (!MixinPlugin.mixinsDisabled()) {
+            Throwable error = MixinAudit.run();
+            check("mixin audit (all targets found, all injections applied)", error == null, error);
+            if (error != null) {
+                ExtendedHeightMod.LOG.error("Mixin audit failed", error);
+            }
+        }
         switch (phase) {
             case "baseline":
             case "vanilla-mod":
@@ -544,7 +571,7 @@ public final class SelfTest {
         lines.add("INFO " + message);
     }
 
-    private void writeReport() {
+    void writeReport() {
         lines.add("OVERALL: " + (failed ? "FAIL" : "PASS"));
         String path = config().getProperty("result", "selftest-result.txt");
         try (PrintWriter out = new PrintWriter(path, "UTF-8")) {

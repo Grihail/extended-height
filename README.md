@@ -19,7 +19,13 @@ dependencies {
 }
 ```
 
-Мод использует миксины через UniMixins: UniMixins нужен в рантайме.
+### Требования
+
+- Minecraft 1.7.10, Forge 10.13.4.1614.
+- **[UniMixins](https://github.com/LegacyModdingMC/UniMixins)** — обязателен и в клиенте, и на сервере: мод
+  патчит игру через Mixin. Проверено с **UniMixins 0.3.1** (сборка `unimixins-0.3.1.jar`, «all-in-one»). Другие
+  версии не проверялись; моды, которые несут свой Mixin вместо UniMixins (старые SpongeMixins / MixinBooter),
+  не поддерживаются.
 
 ## API
 
@@ -111,7 +117,10 @@ ArchaicFix/Hodgepodge/CoreTweaks (миксины в `Chunk` и свет), NotEno
 ## Разработка и тесты
 
 - `gradlew test` — юнит-тесты (индексация секций, ограничения диапазона).
-- `powershell -ExecutionPolicy Bypass -File scripts/selftest.ps1` — серверный самотест: четыре запуска dev-сервера
-  (базовый без миксинов, мод без расширенных миров, запись в расширенное измерение, перезапуск и чтение).
-  Отчёты лежат в `run/selftest/*/selftest-result-*.txt`. Тестовые измерения 4242/4244 регистрируются только при
-  наличии файла `extendedheight-selftest.properties` в рабочей папке сервера.
+- `powershell -ExecutionPolicy Bypass -File scripts/selftest.ps1 [-Env dev|obf|both] [-NoClient]` — самотест.
+  Сервер запускается четыре раза: базовый прогон без миксинов, мод без расширенных миров, запись в расширенное
+  измерение, перезапуск и чтение. Клиент запускается один раз: аудит миксинов, создание одиночного мира, выход.
+  При `-Env both` (по умолчанию) всё выполняется дважды — в dev и в обфусцированной среде Forge с собранным
+  reobf-jar и UniMixins, как в настоящей игре. Отчёты — в `run/selftest/<env>/*/selftest-result-*.txt`. Тестовые
+  измерения 4242/4244 регистрируются только при наличии файла `extendedheight-selftest.properties` в рабочей
+  папке. Нужно около 3 ГБ свободной памяти; при нехватке JVM падает с «insufficient memory», это не ошибка мода.

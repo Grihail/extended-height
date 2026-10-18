@@ -5,7 +5,9 @@ import net.minecraft.server.MinecraftServer;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 
+import cpw.mods.fml.common.FMLCommonHandler;
 import cpw.mods.fml.common.Mod;
+import cpw.mods.fml.common.event.FMLLoadCompleteEvent;
 import cpw.mods.fml.common.event.FMLPreInitializationEvent;
 import cpw.mods.fml.common.event.FMLServerStartedEvent;
 import io.github.extendedheight.core.MixinPlugin;
@@ -30,8 +32,19 @@ public class ExtendedHeightMod {
     }
 
     @Mod.EventHandler
+    public void loadComplete(FMLLoadCompleteEvent event) {
+        if (SelfTest.isActive() && "client-audit".equals(SelfTest.phase())
+            && FMLCommonHandler.instance()
+                .getSide()
+                .isClient()) {
+            SelfTest.clientAudit();
+        }
+    }
+
+    @Mod.EventHandler
     public void serverStarted(FMLServerStartedEvent event) {
-        if (SelfTest.isActive()) {
+        // В клиентской фазе это встроенный сервер тестового мира: тест ведёт клиентская часть
+        if (SelfTest.isActive() && !"client-audit".equals(SelfTest.phase())) {
             SelfTest.serverStarted(MinecraftServer.getServer());
         }
     }

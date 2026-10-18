@@ -20,6 +20,7 @@
   ],
   "client": [
     "early.client.MixinChunkClient",
+    "early.client.MixinWorldClientInit",
     "early.client.MixinWorldClientLight"
   ],
   "server": []

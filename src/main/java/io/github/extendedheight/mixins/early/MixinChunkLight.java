@@ -71,7 +71,7 @@ public abstract class MixinChunkLight {
 
     // ---- generateSkylightMap ----
 
-    @Inject(method = "generateSkylightMap", at = @At("HEAD"), cancellable = true)
+    @Inject(method = "generateSkylightMap", at = @At("HEAD"), cancellable = true, require = 1, allow = 1)
     private void eh$generateSkylightMap(CallbackInfo ci) {
         HeightRange range = eh$extendedRange();
         if (range == null) {
@@ -122,7 +122,7 @@ public abstract class MixinChunkLight {
 
     // ---- relightBlock ----
 
-    @Inject(method = "relightBlock", at = @At("HEAD"), cancellable = true)
+    @Inject(method = "relightBlock", at = @At("HEAD"), cancellable = true, require = 1, allow = 1)
     private void eh$relightBlock(int x, int y, int z, CallbackInfo ci) {
         HeightRange range = eh$extendedRange();
         if (range == null) {
@@ -201,7 +201,7 @@ public abstract class MixinChunkLight {
 
     // ---- func_150811_f (заселение света столбца) ----
 
-    @Inject(method = "func_150811_f", at = @At("HEAD"), cancellable = true)
+    @Inject(method = "func_150811_f", at = @At("HEAD"), cancellable = true, require = 1, allow = 1)
     private void eh$populateColumnLight(int x, int z, CallbackInfoReturnable<Boolean> cir) {
         HeightRange range = eh$extendedRange();
         if (range == null) {
@@ -236,7 +236,7 @@ public abstract class MixinChunkLight {
 
     // ---- enqueueRelightChecks ----
 
-    @Inject(method = "enqueueRelightChecks", at = @At("HEAD"), cancellable = true)
+    @Inject(method = "enqueueRelightChecks", at = @At("HEAD"), cancellable = true, require = 1, allow = 1)
     private void eh$enqueueRelightChecks(CallbackInfo ci) {
         HeightRange range = eh$extendedRange();
         if (range == null) {

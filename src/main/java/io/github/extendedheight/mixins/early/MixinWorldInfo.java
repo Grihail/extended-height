@@ -29,7 +29,7 @@ public abstract class MixinWorldInfo implements IHeightTableHolder {
         return eh$heightTable;
     }
 
-    @Inject(method = "<init>(Lnet/minecraft/nbt/NBTTagCompound;)V", at = @At("RETURN"))
+    @Inject(method = "<init>(Lnet/minecraft/nbt/NBTTagCompound;)V", at = @At("RETURN"), require = 1, allow = 1)
     private void eh$readTable(NBTTagCompound nbt, CallbackInfo ci) {
         if (!nbt.hasKey(NBT_KEY, 9)) {
             return;
@@ -57,12 +57,12 @@ public abstract class MixinWorldInfo implements IHeightTableHolder {
         ExtendedHeightMod.LOG.info("level.dat: extended dimensions {}", eh$heightTable);
     }
 
-    @Inject(method = "<init>(Lnet/minecraft/world/storage/WorldInfo;)V", at = @At("RETURN"))
+    @Inject(method = "<init>(Lnet/minecraft/world/storage/WorldInfo;)V", at = @At("RETURN"), require = 1, allow = 1)
     private void eh$copyTable(WorldInfo other, CallbackInfo ci) {
         eh$heightTable.putAll(((IHeightTableHolder) other).eh$getHeightTable());
     }
 
-    @Inject(method = "updateTagCompound", at = @At("RETURN"))
+    @Inject(method = "updateTagCompound", at = @At("RETURN"), require = 1, allow = 1)
     private void eh$writeTable(NBTTagCompound nbt, NBTTagCompound playerNbt, CallbackInfo ci) {
         if (eh$heightTable.isEmpty()) {
             return;

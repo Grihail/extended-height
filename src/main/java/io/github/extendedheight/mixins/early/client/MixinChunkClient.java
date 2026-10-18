@@ -30,7 +30,7 @@ public abstract class MixinChunkClient {
     @Shadow
     public abstract int getTopFilledSegment();
 
-    @Inject(method = "generateHeightMap", at = @At("HEAD"), cancellable = true)
+    @Inject(method = "generateHeightMap", at = @At("HEAD"), cancellable = true, require = 1, allow = 1)
     private void eh$generateHeightMap(CallbackInfo ci) {
         HeightRange range = ((IExtendedHeightChunk) this).eh$getRange();
         if (range.isVanilla()) {

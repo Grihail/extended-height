@@ -42,3 +42,25 @@ dependencies {
 tasks.named("test") {
     useJUnitPlatform()
 }
+
+// scripts/selftest.ps1 запускает dev- и obf-клиент/сервер в отдельных каталогах
+def ehWorkDir = project.findProperty("ehWorkDir")
+if (ehWorkDir) {
+    tasks.matching { it.name in ["runServer", "runObfServer", "runClient", "runObfClient"] }.configureEach {
+        workingDir = project.file(ehWorkDir)
+        // Маленькие тестовые миры: малая куча, чтобы самотест выживал на загруженной машине
+        maxHeapSize = name.contains("Client") ? "1536m" : "1024m"
+    }
+    // Obf-запуски грузят моды из <workingDir>/mods; prepareObfModsFolder кладёт туда reobf-jar мода и UniMixins
+    def obfModsSource = project.file("run/obfuscated/mods")
+    def obfModsTarget = project.file("${ehWorkDir}/mods")
+    tasks.matching { it.name in ["runObfServer", "runObfClient"] }.configureEach {
+        doFirst {
+            obfModsTarget.mkdirs()
+            obfModsSource.listFiles().each { File jar ->
+                java.nio.file.Files.copy(jar.toPath(), new File(obfModsTarget, jar.name).toPath(),
+                    java.nio.file.StandardCopyOption.REPLACE_EXISTING)
+            }
+        }
+    }
+}

@@ -58,7 +58,7 @@ public abstract class MixinChunk implements IExtendedHeightChunk {
         return eh$range;
     }
 
-    @Inject(method = "<init>(Lnet/minecraft/world/World;II)V", at = @At("RETURN"))
+    @Inject(method = "<init>(Lnet/minecraft/world/World;II)V", at = @At("RETURN"), require = 1, allow = 1)
     private void eh$sizeStorage(World world, int x, int z, CallbackInfo ci) {
         if (world == null) {
             return;
@@ -118,7 +118,7 @@ public abstract class MixinChunk implements IExtendedHeightChunk {
     @Unique
     private boolean eh$newSectionAboveHeightMap;
 
-    @Inject(method = "func_150807_a", at = @At("HEAD"), cancellable = true)
+    @Inject(method = "func_150807_a", at = @At("HEAD"), cancellable = true, require = 1, allow = 1)
     private void eh$prepareSection(int x, int y, int z, Block block, int meta, CallbackInfoReturnable<Boolean> cir) {
         eh$newSectionAboveHeightMap = false;
         if (eh$minSection == 0 && storageArrays.length == 16) {
@@ -144,7 +144,7 @@ public abstract class MixinChunk implements IExtendedHeightChunk {
         return flag ? 1 : 0;
     }
 
-    @Inject(method = "setLightValue", at = @At("HEAD"), cancellable = true)
+    @Inject(method = "setLightValue", at = @At("HEAD"), cancellable = true, require = 1, allow = 1)
     private void eh$prepareLightSection(EnumSkyBlock type, int x, int y, int z, int value, CallbackInfo ci) {
         if (eh$minSection == 0 && storageArrays.length == 16) {
             return;
@@ -172,7 +172,7 @@ public abstract class MixinChunk implements IExtendedHeightChunk {
     }
 
     /** Пустой чанк: нижний y вместо 0 */
-    @ModifyConstant(method = "getTopFilledSegment", constant = @Constant(intValue = 0))
+    @ModifyConstant(method = "getTopFilledSegment", constant = @Constant(intValue = 0), require = 1, allow = 1)
     private int eh$emptyTopSegment(int zero) {
         return eh$minY;
     }
@@ -182,17 +182,18 @@ public abstract class MixinChunk implements IExtendedHeightChunk {
         method = "getAreLevelsEmpty",
         constant = { @Constant(intValue = 0, ordinal = 0, expandZeroConditions = Condition.LESS_THAN_ZERO),
             @Constant(intValue = 0, ordinal = 1, expandZeroConditions = Condition.LESS_THAN_ZERO) },
-        require = 2)
+        require = 2,
+        allow = 2)
     private int eh$levelsMin(int zero) {
         return eh$minY;
     }
 
-    @ModifyConstant(method = "getAreLevelsEmpty", constant = @Constant(intValue = 256))
+    @ModifyConstant(method = "getAreLevelsEmpty", constant = @Constant(intValue = 256), require = 1, allow = 1)
     private int eh$levelsMaxExcl(int value) {
         return eh$maxY + 1;
     }
 
-    @ModifyConstant(method = "getAreLevelsEmpty", constant = @Constant(intValue = 255))
+    @ModifyConstant(method = "getAreLevelsEmpty", constant = @Constant(intValue = 255), require = 1, allow = 1)
     private int eh$levelsMax(int value) {
         return eh$maxY;
     }
@@ -200,13 +201,15 @@ public abstract class MixinChunk implements IExtendedHeightChunk {
     /** while (y > 0 && l == -1): скан до minY; «нет блока» — minY (ваниль -1) */
     @ModifyConstant(
         method = "getPrecipitationHeight",
-        constant = @Constant(intValue = 0, ordinal = 0, expandZeroConditions = Condition.GREATER_THAN_ZERO))
+        constant = @Constant(intValue = 0, ordinal = 0, expandZeroConditions = Condition.GREATER_THAN_ZERO),
+        require = 1,
+        allow = 1)
     private int eh$precipitationLoop(int zero) {
         return eh$minY;
     }
 
     /** l = -1 и l == -1 заменены одним значением, логика цикла та же */
-    @ModifyConstant(method = "getPrecipitationHeight", constant = @Constant(intValue = -1), require = 2)
+    @ModifyConstant(method = "getPrecipitationHeight", constant = @Constant(intValue = -1), require = 2, allow = 2)
     private int eh$precipitationNone(int value) {
         return eh$minSection == 0 ? -1 : eh$minY;
     }

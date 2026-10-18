@@ -1,4 +1,9 @@
-# Серверный самотест ExtendedHeight (этап 1): четыре запуска runServer — baseline, vanilla-mod, write, verify
+# Самотест ExtendedHeight: фазы baseline/vanilla-mod/write/verify/client-audit в dev и obf; -Env -NoClient
+
+param(
+    [ValidateSet('dev', 'obf', 'both')] [string]$Env = 'both',
+    [switch]$NoClient
+)
 
 $ErrorActionPreference = 'Stop'
 $root = Split-Path -Parent $PSScriptRoot
@@ -29,12 +34,31 @@ server-port=25599
 view-distance=4
 '@
 
-function Invoke-Phase([string]$dirName, [string]$phase, [hashtable]$extra, [bool]$disableMixins, [bool]$fresh) {
-    $dir = Join-Path $base $dirName
+$PhaseTimeoutMinutes = 12
+
+# Запускает задачу gradle с таймаутом; по таймауту убивает всё дерево процессов
+function Invoke-Gradle([string]$task, [string]$relDir, [string]$log) {
+    $p = Start-Process -FilePath (Join-Path $root 'gradlew.bat') -WorkingDirectory $root -NoNewWindow -PassThru `
+        -ArgumentList @('--no-daemon', $task, "-PehWorkDir=$relDir") `
+        -RedirectStandardOutput $log -RedirectStandardError "$log.err"
+    if (-not $p.WaitForExit($PhaseTimeoutMinutes * 60 * 1000)) {
+        Write-Host "  TIMEOUT after $PhaseTimeoutMinutes min, killing the process tree" -ForegroundColor Red
+        & taskkill.exe /T /F /PID $p.Id | Out-Null
+        return -1
+    }
+    return $p.ExitCode
+}
+
+function Invoke-Phase([string]$envName, [string]$task, [string]$dirName, [string]$phase, [hashtable]$extra,
+    [bool]$disableMixins, [bool]$fresh, [bool]$server) {
+    $envBase = Join-Path $base $envName
+    $dir = Join-Path $envBase $dirName
     if ($fresh) {
         New-Item -ItemType Directory -Force $dir | Out-Null
-        Set-Content -Encoding ascii (Join-Path $dir 'eula.txt') 'eula=true'
-        Set-Content -Encoding ascii (Join-Path $dir 'server.properties') $serverProperties
+        if ($server) {
+            Set-Content -Encoding ascii (Join-Path $dir 'eula.txt') 'eula=true'
+            Set-Content -Encoding ascii (Join-Path $dir 'server.properties') $serverProperties
+        }
     }
     $props = @("phase=$phase", "result=selftest-result-$phase.txt")
     foreach ($k in $extra.Keys) { $props += "$k=$($extra[$k] -replace '\\','/')" }
@@ -42,23 +66,9 @@ function Invoke-Phase([string]$dirName, [string]$phase, [hashtable]$extra, [bool
     $marker = Join-Path $dir 'extendedheight-disable-mixins'
     if ($disableMixins) { Set-Content -Encoding ascii $marker '' } elseif (Test-Path $marker) { Remove-Item $marker }
 
-    Write-Host "=== phase $phase ($dirName)"
-    $relDir = "run/selftest/$dirName"
-    $log = Join-Path $base "$phase.gradle.log"
-    $previousDir = [Environment]::CurrentDirectory
-    $previousPref = $ErrorActionPreference
-    try {
-        # Gradle ищет проект по рабочему каталогу процесса
-        [Environment]::CurrentDirectory = $root
-        # В PowerShell 5.1 stderr нативных команд становится ошибками — скрипт не должен на них падать
-        $ErrorActionPreference = 'Continue'
-        & (Join-Path $root 'gradlew.bat') --no-daemon runServer "-PrunServerWorkingDirectory=$relDir" 2>&1 |
-            ForEach-Object { "$_" } | Out-File -Encoding utf8 $log
-        $gradleExit = $LASTEXITCODE
-    } finally {
-        $ErrorActionPreference = $previousPref
-        [Environment]::CurrentDirectory = $previousDir
-    }
+    Write-Host "=== [$envName] phase $phase ($task)"
+    $log = Join-Path $envBase "$phase.gradle.log"
+    $gradleExit = Invoke-Gradle $task "run/selftest/$envName/$dirName" $log
 
     $result = Join-Path $dir "selftest-result-$phase.txt"
     if (-not (Test-Path $result)) {
@@ -74,17 +84,27 @@ function Invoke-Phase([string]$dirName, [string]$phase, [hashtable]$extra, [bool
     return $ok
 }
 
-$snapBaseline = Join-Path $base 'snapshot-baseline'
 $results = [ordered]@{}
-$results['baseline'] = Invoke-Phase 'baseline' 'baseline' @{ snapshot = $snapBaseline } $true $true
-$results['vanilla-mod'] = Invoke-Phase 'vanillamod' 'vanilla-mod' @{ snapshot = (Join-Path $base 'snapshot-vanillamod'); compareWith = $snapBaseline } $false $true
-$results['write'] = Invoke-Phase 'extended' 'write' @{ snapshot = (Join-Path $base 'snapshot-extended'); compareWith = $snapBaseline } $false $true
-$results['verify'] = Invoke-Phase 'extended' 'verify' @{} $false $false
+$envs = if ($Env -eq 'both') { @('dev', 'obf') } else { @($Env) }
+foreach ($e in $envs) {
+    $serverTask = if ($e -eq 'obf') { 'runObfServer' } else { 'runServer' }
+    $clientTask = if ($e -eq 'obf') { 'runObfClient' } else { 'runClient' }
+    $envBase = Join-Path $base $e
+    New-Item -ItemType Directory -Force $envBase | Out-Null
+    $snapBaseline = Join-Path $envBase 'snapshot-baseline'
+    $results["$e baseline"] = Invoke-Phase $e $serverTask 'baseline' 'baseline' @{ snapshot = $snapBaseline } $true $true $true
+    $results["$e vanilla-mod"] = Invoke-Phase $e $serverTask 'vanillamod' 'vanilla-mod' @{ snapshot = (Join-Path $envBase 'snapshot-vanillamod'); compareWith = $snapBaseline } $false $true $true
+    $results["$e write"] = Invoke-Phase $e $serverTask 'extended' 'write' @{ snapshot = (Join-Path $envBase 'snapshot-extended'); compareWith = $snapBaseline } $false $true $true
+    $results["$e verify"] = Invoke-Phase $e $serverTask 'extended' 'verify' @{} $false $false $true
+    if (-not $NoClient) {
+        $results["$e client-audit"] = Invoke-Phase $e $clientTask 'client' 'client-audit' @{} $false $true $false
+    }
+}
 
 Write-Host ''
 $allOk = $true
 foreach ($k in $results.Keys) {
     $state = if ($results[$k]) { 'PASS' } else { 'FAIL'; $allOk = $false }
-    Write-Host ("{0,-12} {1}" -f $k, $state)
+    Write-Host ("{0,-20} {1}" -f $k, $state)
 }
 if (-not $allOk) { exit 1 }

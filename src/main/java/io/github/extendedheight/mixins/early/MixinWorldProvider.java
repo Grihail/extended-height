@@ -19,7 +19,13 @@ public abstract class MixinWorldProvider {
     @Shadow
     public World worldObj;
 
-    @Inject(method = { "getHeight", "getActualHeight" }, at = @At("HEAD"), cancellable = true, remap = false)
+    @Inject(
+        method = { "getHeight", "getActualHeight" },
+        at = @At("HEAD"),
+        cancellable = true,
+        remap = false,
+        require = 2,
+        allow = 2)
     private void eh$height(CallbackInfoReturnable<Integer> cir) {
         if (worldObj != null) {
             HeightRange range = ExtendedHeight.getRange(worldObj);

@@ -18,7 +18,7 @@ import io.github.extendedheight.core.ExtendedChunkNbt;
 @Mixin(AnvilChunkLoader.class)
 public abstract class MixinAnvilChunkLoader {
 
-    @Inject(method = "readChunkFromNBT", at = @At("HEAD"), cancellable = true)
+    @Inject(method = "readChunkFromNBT", at = @At("HEAD"), cancellable = true, require = 1, allow = 1)
     private void eh$readExtended(World world, NBTTagCompound level, CallbackInfoReturnable<Chunk> cir) {
         HeightRange range = ExtendedHeight.getRange(world);
         if (!range.isVanilla()) {

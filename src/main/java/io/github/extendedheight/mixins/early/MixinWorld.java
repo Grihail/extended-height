@@ -41,13 +41,15 @@ public abstract class MixinWorld implements IExtendedHeightWorld {
         eh$maxYExcl = range.maxYExclusive();
     }
 
-    /** Задаём диапазон до создания провайдера чанков (он создаётся следующей строкой) */
+    /** Задаём диапазон до создания провайдера чанков; полный дескриптор конструктора — ради refmap */
     @Inject(
-        method = "<init>",
+        method = "<init>(Lnet/minecraft/world/storage/ISaveHandler;Ljava/lang/String;Lnet/minecraft/world/WorldSettings;Lnet/minecraft/world/WorldProvider;Lnet/minecraft/profiler/Profiler;)V",
         at = @At(
             value = "INVOKE",
             target = "Lnet/minecraft/world/WorldProvider;registerWorld(Lnet/minecraft/world/World;)V",
-            shift = At.Shift.AFTER))
+            shift = At.Shift.AFTER),
+        require = 1,
+        allow = 1)
     private void eh$resolveRange(CallbackInfo ci) {
         eh$setRange(RangeResolver.resolve((World) (Object) this));
     }
@@ -76,7 +78,9 @@ public abstract class MixinWorld implements IExtendedHeightWorld {
     /** if (y < 0) return 0; if (y >= 256) y = 255; — только сравнение, возвращаемый 0 остаётся */
     @ModifyConstant(
         method = "getFullBlockLightValue",
-        constant = @Constant(intValue = 0, ordinal = 0, expandZeroConditions = Condition.LESS_THAN_ZERO))
+        constant = @Constant(intValue = 0, ordinal = 0, expandZeroConditions = Condition.LESS_THAN_ZERO),
+        require = 1,
+        allow = 1)
     private int eh$minYFullLight(int zero) {
         return eh$minY;
     }
@@ -95,7 +99,9 @@ public abstract class MixinWorld implements IExtendedHeightWorld {
     /** Проверке y < 0 предшествуют пять рекурсивных вызовов с false (ICONST_0) */
     @ModifyConstant(
         method = "getBlockLightValue_do",
-        constant = @Constant(intValue = 0, ordinal = 5, expandZeroConditions = Condition.LESS_THAN_ZERO))
+        constant = @Constant(intValue = 0, ordinal = 5, expandZeroConditions = Condition.LESS_THAN_ZERO),
+        require = 1,
+        allow = 1)
     private int eh$minYLightDo(int zero) {
         return eh$minY;
     }
@@ -115,7 +121,9 @@ public abstract class MixinWorld implements IExtendedHeightWorld {
     @ModifyConstant(
         method = "getBlockLightOpacity",
         constant = @Constant(intValue = 0, ordinal = 1, expandZeroConditions = Condition.LESS_THAN_ZERO),
-        remap = false)
+        remap = false,
+        require = 1,
+        allow = 1)
     private int eh$minYOpacity(int zero) {
         return eh$minY;
     }
@@ -158,12 +166,14 @@ public abstract class MixinWorld implements IExtendedHeightWorld {
     /** for (k = top + 15; k > 0; --k) и return -1 */
     @ModifyConstant(
         method = "getTopSolidOrLiquidBlock",
-        constant = @Constant(intValue = 0, ordinal = 0, expandZeroConditions = Condition.GREATER_THAN_ZERO))
+        constant = @Constant(intValue = 0, ordinal = 0, expandZeroConditions = Condition.GREATER_THAN_ZERO),
+        require = 1,
+        allow = 1)
     private int eh$topSolidLoop(int zero) {
         return eh$minY;
     }
 
-    @ModifyConstant(method = "getTopSolidOrLiquidBlock", constant = @Constant(intValue = -1))
+    @ModifyConstant(method = "getTopSolidOrLiquidBlock", constant = @Constant(intValue = -1), require = 1, allow = 1)
     private int eh$topSolidNone(int value) {
         return eh$minY - 1;
     }
