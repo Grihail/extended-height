@@ -15,15 +15,16 @@ import net.minecraft.world.biome.WorldChunkManager;
 import net.minecraft.world.biome.WorldChunkManagerHell;
 import net.minecraft.world.chunk.Chunk;
 import net.minecraft.world.chunk.IChunkProvider;
-import net.minecraft.world.chunk.storage.ExtendedBlockStorage;
 
+import io.github.extendedheight.api.ExtendedChunkPrimer;
 import io.github.extendedheight.api.ExtendedHeight;
 import io.github.extendedheight.api.HeightRange;
+import io.github.extendedheight.api.IBiomeAtProvider;
 import io.github.extendedheight.api.IVoidEffectsProvider;
 import io.github.extendedheight.api.VoidEffects;
 
 /** Тип мира для пробы расширенной высоты: -256..319, равнины, без мобов; шерсть по секциям, столб-маркер */
-public class WorldTypeExtendedTest extends WorldType implements IVoidEffectsProvider {
+public class WorldTypeExtendedTest extends WorldType implements IVoidEffectsProvider, IBiomeAtProvider {
 
     public static final String NAME = "extendedtest";
     public static final int MIN_Y = -256;
@@ -35,6 +36,9 @@ public class WorldTypeExtendedTest extends WorldType implements IVoidEffectsProv
 
     /** Только самотест: эффекты пустоты типа мира; null — встроенные */
     public static volatile VoidEffects testVoidEffects;
+
+    /** Только самотест: биомы по высоте — болото ниже 0, пустыня выше; иначе биомы столбца */
+    public static volatile boolean testBiomesByHeight;
 
     private WorldTypeExtendedTest() {
         super(NAME);
@@ -55,6 +59,14 @@ public class WorldTypeExtendedTest extends WorldType implements IVoidEffectsProv
     @Override
     public VoidEffects getVoidEffects(World world) {
         return testVoidEffects;
+    }
+
+    @Override
+    public BiomeGenBase getBiome(World world, int x, int y, int z, BiomeGenBase columnBiome) {
+        if (!testBiomesByHeight) {
+            return null;
+        }
+        return y < 0 ? BiomeGenBase.swampland : BiomeGenBase.desert;
     }
 
     @Override
@@ -101,44 +113,23 @@ public class WorldTypeExtendedTest extends WorldType implements IVoidEffectsProv
 
         @Override
         public Chunk provideChunk(int cx, int cz) {
-            Chunk chunk = new Chunk(world, cx, cz);
-            HeightRange range = ExtendedHeight.getRange(world);
-            ExtendedBlockStorage[] storage = chunk.getBlockStorageArray();
-            boolean sky = !world.provider.hasNoSky;
-            int bottom = range.minY;
-            for (int y = bottom; y <= TOP_Y; y++) {
-                Block block = groundBlock(y);
-                int meta = groundMeta(y);
-                ExtendedBlockStorage ebs = section(storage, range, y, sky);
-                for (int x = 0; x < 16; x++) {
-                    for (int z = 0; z < 16; z++) {
-                        ebs.func_150818_a(x, y & 15, z, block);
-                        ebs.setExtBlockMetadata(x, y & 15, z, meta);
+            // Собирается публичным ExtendedChunkPrimer, так что проверки раскладки его покрывают
+            ExtendedChunkPrimer primer = new ExtendedChunkPrimer(world);
+            HeightRange range = primer.range();
+            for (int x = 0; x < 16; x++) {
+                for (int z = 0; z < 16; z++) {
+                    for (int y = range.minY; y <= TOP_Y; y++) {
+                        primer.setBlock(x, y, z, groundBlock(y), groundMeta(y));
                     }
+                    primer.setBiome(x, z, BiomeGenBase.plains);
                 }
             }
             if (cx == 0 && cz == 0) {
                 for (int y = TOP_Y + 1; y <= range.maxY; y++) {
-                    ExtendedBlockStorage ebs = section(storage, range, y, sky);
-                    ebs.func_150818_a(0, y & 15, 0, columnBlock(y));
-                    ebs.setExtBlockMetadata(0, y & 15, 0, columnMeta(y));
+                    primer.setBlock(0, y, 0, columnBlock(y), columnMeta(y));
                 }
             }
-            byte[] biomes = chunk.getBiomeArray();
-            for (int i = 0; i < biomes.length; i++) {
-                biomes[i] = (byte) BiomeGenBase.plains.biomeID;
-            }
-            chunk.generateSkylightMap();
-            return chunk;
-        }
-
-        private static ExtendedBlockStorage section(ExtendedBlockStorage[] storage, HeightRange range, int y,
-            boolean sky) {
-            int index = range.sectionIndex(y);
-            if (storage[index] == null) {
-                storage[index] = new ExtendedBlockStorage(y >> 4 << 4, sky);
-            }
-            return storage[index];
+            return primer.toChunk(world, cx, cz);
         }
 
         @Override

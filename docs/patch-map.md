@@ -386,6 +386,25 @@ write, измерение 4242. **Контроль:** с выключенным�
 одной на y −100; множитель 0.5 — половина, 0 — ни одной; таблица тумана (мир вкл + auto = вкл, мир вкл + off = выкл,
 мир выкл + on = выкл, встроенное + on = вкл, встроенное + auto = выкл); ванильный мир — без эффектов библиотеки.
 
+## Шаг 4 плана Reverworld: `ExtendedChunkPrimer` (API)
+
+`api/ExtendedChunkPrimer`: запись блоков с реальным y на весь диапазон (секции под не-воздух, `ExtendedBlockStorage` с
+реальным `yBase`), биом колонки, `toChunk(world, cx, cz)` — секции в слоты, биомы, `generateSkylightMap()`; повторное
+использование и мир другого диапазона — исключение. Генератор `extendedtest` переведён на праймер: раскладка мира
+сверяется в `client-audit` и `net`. Проверки праймера — `selftest/PrimerTests` (фаза write): блоки на границах секций
+−256…319, `yBase` секций, пустые секции отсутствуют, биом колонки, карта высот и небесный свет, отказы. Замечено: как
+и в ванили, `generateSkylightMap` не сканирует верхний ряд верхней заполненной секции (README, генератору). Не сделан
+замер скорости против ванильного конструктора `Chunk`.
+
+## Биомы по высоте: вариант В (`IBiomeAtProvider`)
+
+Выбор и полный список 27 точек патча — `docs/reverworld-compat.md` §3. Кратко: `api/IBiomeAtProvider` (на
+`WorldProvider` или `WorldType` для измерения 0) даёт биом в точке; ничего не хранится и не передаётся;
+`core/BiomeLookup` + миксины `mixins/early/biome/*` (сервер) и `client/MixinBiomeColorsAt`, `MixinF3BiomeAt`,
+`MixinRainBiomeAt`, `MixinSkyBlendBiomeAt` (клиент); `ChunkCacheAccessor` даёт мир при рендере чанков. Проверки —
+`ServerEntityTests.biomesAt` (спавн ванильного генератора, влажность) и `ClientSelfTest.checkBiomesAt` (цвет воды,
+травы, неба по высоте).
+
 ## Округление высоты: `(int)` → `floor`
 
 `(int)` округляет к нулю: ниже y 0 это блок на единицу выше нужного. Поиск по `build/rfg/minecraft-src` (`(int)` от

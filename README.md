@@ -4,9 +4,10 @@
 измерений, например y −256…319. Измерения, не включившие расширение, работают как в ванили — по поведению и по
 формату сохранений.
 
-> **Статус: вехи 1–2 и 3a из 5** (хранение, World API, сохранение, свет, сеть и рендер в минимальном объёме). В
-> расширенный мир можно зайти и строить в нём (тестовый тип мира `extendedtest`). Не готовы: частицы и свет на
-> клиенте, небо и туман у границ (3b), сущности выше 256 и мобы (4), совместимость (5).
+> **Версия 1.0.0.** Готовы: хранение, World API, сохранение, свет, сеть и рендер (3a), сущности и спавн ниже 0,
+> API для генераторов (`ExtendedChunkPrimer`, `IBiomeAtProvider`, `IVoidEffectsProvider`). Не готовы: часть 3b (свет
+> клиента против сервера, горизонт, погода и облака у границ, худший случай S26, замеры), совместимость с OptiFine и
+> другими модами (веха 5).
 > Подробности — в [docs/patch-map.md](docs/patch-map.md), замеры — в [docs/perf.md](docs/perf.md).
 
 ## Подключение
@@ -93,35 +94,104 @@ world.getHeight();                                // maxY + 1 для расши�
 
 ## Что нужно учесть генератору
 
-Библиотека расширяет хранение и World API, но ванильный код генерации рассчитан на 0…255, и **библиотека его не
-чинит**. Если генератор (например, Reverworld) зовёт ванильные декораторы для частей мира ниже 0, нужно учитывать
-следующее. Здесь h — `world.getHeightValue(x, z)`; в расширенном мире h может быть ≤ 0.
+Пример полного генератора — тип мира `extendedtest` (`world/WorldTypeExtendedTest`); подробный разбор для Reverworld —
+[docs/reverworld-compat.md](docs/reverworld-compat.md).
+
+### Колонка чанка на весь диапазон: `ExtendedChunkPrimer`
+
+Ванильный `Chunk(World, Block[], byte[], x, z)` раскладывает массив на y 0…255 — для расширенного мира не годится.
+
+```java
+public Chunk provideChunk(int cx, int cz) {
+    ExtendedChunkPrimer primer = new ExtendedChunkPrimer(world);   // диапазон мира, небесный свет по провайдеру
+    HeightRange r = primer.range();
+    for (int x = 0; x < 16; x++) for (int z = 0; z < 16; z++) {
+        for (int y = r.minY; y <= r.maxY; y++) primer.setBlock(x, y, z, blockAt(cx, cz, x, y, z), metaAt(...));
+        primer.setBiome(x, z, columnBiome(cx * 16 + x, cz * 16 + z));  // биом колонки (ванильный массив Biomes)
+    }
+    return primer.toChunk(world, cx, cz);   // секции, биомы, generateSkylightMap()
+}
+```
+
+- y — настоящая высота мира; секции создаются только под не-воздух; один праймер строит один чанк.
+- Генератор по секциям 16³ пишет `setBlock(x, sectionY * 16 + ly, z, …)`.
+- Как и в ванили, `generateSkylightMap` не смотрит самый верхний ряд верхней заполненной секции (в ванили — y 255):
+  одиночный блок ровно на верхнем ряду не попадёт в карту высот до первого изменения блока рядом. Нижний ряд мира
+  (`minY`) тоже не сканируется (patch-map, «Статус вехи 2»).
+
+### Populate во всём диапазоне
+
+`IChunkProvider.populate(provider, cx, cz)` вызывается на колонку; `World.getBlock/setBlock` работают на всём
+диапазоне. Генератор, декорирующий по секциям, проходит их сам:
+
+```java
+for (int sy = r.minSection(); sy <= r.maxSection(); sy++) decorate(world, cx * 16 + 8, sy * 16 + 8, cz * 16 + 8);
+```
+
+### Биом по высоте: `IBiomeAtProvider`
+
+В 1.7.10 биом один на колонку. Мир с разными биомами по высоте реализует `IBiomeAtProvider` на `WorldProvider` или на
+`WorldType` (измерение 0):
+
+```java
+public class MyWorldType extends WorldType implements IBiomeAtProvider {
+    public BiomeGenBase getBiome(World world, int x, int y, int z, BiomeGenBase columnBiome) {
+        return y < BEDROCK_Y ? MY_LOWER_BIOME : null;   // null — биом колонки (columnBiome)
+    }
+}
+```
+
+Ничего не хранится и не передаётся: биом вычисляется из позиции, на сервере и на клиенте, очень часто (цвета блоков
+на каждую вершину) — ответ должен быть дешёвым и одинаковым на обеих сторонах. Библиотека спрашивает его везде, где игра
+знает точку, но берёт биом по x/z: цвет воды, травы и листвы, F3, цвет неба у камеры, осадки и погода, спавн ванильных
+генераторов, слизни, снеговики, жители, кровать, цветы от костной муки (полный список — docs/reverworld-compat.md §3).
+`ExtendedHeight.getBiome(world, x, y, z)` возвращает тот же ответ. **Код, который спрашивает `getBiomeGenForCoords(x, z)`
+напрямую (в том числе другие моды), видит биом колонки.**
+
+### Спавн мобов
+
+Естественный спавн выбирает точку во всём диапазоне (patch-map 7.6) и спрашивает список у генератора с y:
+
+```java
+public List getPossibleCreatures(EnumCreatureType type, int x, int y, int z) {
+    return ExtendedHeight.getBiome(world, x, y, z).getSpawnableList(type);
+}
+```
+
+Спавн при генерации (`SpawnerAnimals.performWorldGenSpawning`) ставит мобов на `getTopSolidOrLiquidBlock` — то есть
+только на верхнюю поверхность колонки; для нижних уровней — свой спавн в populate.
+
+### Эффекты пустоты
+
+Туман и частицы пустоты мир задаёт через `IVoidEffectsProvider` (раздел «Конфиг и эффекты пустоты»); небо — Forge
+`WorldProvider.setSkyRenderer`, горизонт — `WorldType.getHorizon` (библиотека их не трогает).
+
+### Ловушки ванильного кода генерации (библиотека их не чинит)
+
+Здесь h — `world.getHeightValue(x, z)`; в расширенном мире h может быть ≤ 0.
 
 **Падают (`IllegalArgumentException` из `Random.nextInt`) при h ≤ −32** — `nextInt(h + 32)` без защиты:
+`BiomeGenForest.decorate` (цветы/кусты), `BiomeGenPlains.decorate` (два вызова), `BiomeGenSavanna.decorate` (высокая
+трава), `BiomeGenTaiga.decorate` (папоротники/трава). **Не вызывайте `biome.decorate()` для колонок, где h может быть
+≤ −32.**
 
-- `BiomeGenForest.decorate` — цветы/кусты;
-- `BiomeGenPlains.decorate` — два вызова (цветы);
-- `BiomeGenSavanna.decorate` — высокая трава;
-- `BiomeGenTaiga.decorate` — папоротники/трава.
+**Не падают, но ставят декорации на y 0…2h** (никогда ниже 0; при h ≤ 0 — на y 0) — через Forge-обёртку
+`BiomeDecorator.nextInt` (`i ≤ 1 → 0`): `BiomeDecorator.genDecorations` (цветы, трава, кусты, кувшинки, грибы, тростник,
+тыквы, кактусы), `BiomeGenJungle.decorate` (дыни).
 
-**Не падают, но ставят декорации на y 0…2h (никогда ниже 0, при h ≤ 0 — на y = 0)**. Эти методы идут через
-Forge-обёртку `BiomeDecorator.nextInt` (`i ≤ 1 → 0`):
+**Работают только в 0…255:** `BiomeDecorator.generateOres` и `genStandardOre1/2` (фиксированные интервалы: уголь
+0…128, алмазы 0…16), `ChunkProviderGenerate.populate` (озёра, лава, данжи), `MapGenCaves`, `MapGenRavine`, ванильные
+структуры (`Block[]` высотой 256), песок/глина/гравий `BiomeDecorator` (по верхней поверхности).
 
-- `BiomeDecorator.genDecorations`: цветы, трава, мёртвые кусты, кувшинки, грибы, тростник, тыквы, кактусы
-  (`nextInt(h × 2)` или `nextInt(h + 32)`);
-- `BiomeGenJungle.decorate`: дыни (своя защита Forge `height < 1 → 1`).
+**Другие моды:** генераторы `GameRegistry.registerWorldGenerator` (`IWorldGenerator`) рассчитаны на 0…255 — их руды и
+постройки окажутся только в 0…255 расширенного мира. Решите, оставлять их в своём мире или нет.
 
-**Работают только в 0…255:**
+**Поверхность колонки:** `World.getTopSolidOrLiquidBlock(x, z)` и `StructureVillagePieces.Village.getAverageGroundLevel`
+дают верх колонки, а не уровень, на котором строит генератор, — для построек ниже верхней поверхности задавайте высоту
+сами.
 
-- `BiomeDecorator.generateOres` / `genStandardOre1` / `genStandardOre2`: фиксированные интервалы (уголь 0…128,
-  алмазы 0…16 и т. д.);
-- `ChunkProviderGenerate.populate`: озёра, лавовые озёра, данжи (`nextInt(256)` и подобные);
-- `MapGenCaves`, `MapGenRavine`, ванильные структуры: работают с массивом `Block[]` высотой 256;
-- `BiomeDecorator`: песок, глина и гравий у воды — через `getTopSolidOrLiquidBlock`, то есть на верхней поверхности
-  колонки.
-
-Что делать: для частей мира ниже 0 — свой декоратор или вызов ванильного с координатами, сдвинутыми в 0…255, а
-затем перенос результата. Деревья и большие грибы ставятся на h — это работает при любом h.
+Что делать с ванильными декораторами для частей мира ниже 0: свой декоратор, или вызов ванильного с координатами,
+сдвинутыми в 0…255, и перенос результата. Деревья и большие грибы ставятся на h — это работает при любом h.
 
 ## Сеть
 

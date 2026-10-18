@@ -4,6 +4,7 @@ import java.util.List;
 import java.util.Random;
 
 import net.minecraft.block.Block;
+import net.minecraft.entity.EnumCreatureType;
 import net.minecraft.entity.item.EntityFallingBlock;
 import net.minecraft.entity.passive.EntityCow;
 import net.minecraft.entity.passive.EntityPig;
@@ -49,6 +50,51 @@ final class ServerEntityTests {
         fallingBlockEntity();
         safePoint();
         entityLists();
+        biomesAt();
+    }
+
+    /** Вариант C: IBiomeAtProvider мира спрашивают спавн-листы и влажность */
+    @SuppressWarnings("unchecked")
+    private void biomesAt() {
+        int x = BASE_X + 128, z = BASE_Z;
+        net.minecraft.world.gen.ChunkProviderGenerate vanillaGen = new net.minecraft.world.gen.ChunkProviderGenerate(
+            ext,
+            1L,
+            false);
+        SelfTestWorldProvider.biomesByHeight = true;
+        try {
+            boolean ghastBelow = spawnsGhast(vanillaGen.getPossibleCreatures(EnumCreatureType.monster, x, -200, z));
+            boolean ghastAbove = spawnsGhast(vanillaGen.getPossibleCreatures(EnumCreatureType.monster, x, 100, z));
+            report.check(
+                "biome at (x, y, z): vanilla generator spawn list at y -200 is the hell biome's (ghasts), at y 100 not",
+                ghastBelow && !ghastAbove,
+                ghastBelow + " / " + ghastAbove);
+            report.check(
+                "biome at (x, y, z): humidity at y -100 is the swamp's (high), getBiome gives swampland/hell",
+                ext.provider.isBlockHighHumidity(x, -100, z)
+                    && ExtendedHeight.getBiome(ext, x, -100, z) == net.minecraft.world.biome.BiomeGenBase.swampland
+                    && ExtendedHeight.getBiome(ext, x, -200, z) == net.minecraft.world.biome.BiomeGenBase.hell,
+                ExtendedHeight.getBiome(ext, x, -100, z).biomeName);
+        } finally {
+            SelfTestWorldProvider.biomesByHeight = false;
+        }
+        report.check(
+            "biome at (x, y, z): without the provider's answer the column biome is used",
+            ExtendedHeight.getBiome(ext, x, -100, z) == ext.getBiomeGenForCoords(x, z),
+            ExtendedHeight.getBiome(ext, x, -100, z).biomeName);
+    }
+
+    private static boolean spawnsGhast(List<?> list) {
+        if (list == null) {
+            return false;
+        }
+        for (Object o : list) {
+            if (((net.minecraft.world.biome.BiomeGenBase.SpawnListEntry) o).entityClass
+                == net.minecraft.entity.monster.EntityGhast.class) {
+                return true;
+            }
+        }
+        return false;
     }
 
     /** 7.6: ваниль y = nextInt(top + 15) — не ниже 0 и падает при верхе ниже -15 */

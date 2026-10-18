@@ -8,11 +8,25 @@ import net.minecraft.util.IProgressUpdate;
 import net.minecraft.world.ChunkPosition;
 import net.minecraft.world.World;
 import net.minecraft.world.WorldProvider;
+import net.minecraft.world.biome.BiomeGenBase;
 import net.minecraft.world.chunk.Chunk;
 import net.minecraft.world.chunk.IChunkProvider;
 
+import io.github.extendedheight.api.IBiomeAtProvider;
+
 /** Измерение только для самотеста: пустые чанки, без мобов, детерминировано */
-public class SelfTestWorldProvider extends WorldProvider {
+public class SelfTestWorldProvider extends WorldProvider implements IBiomeAtProvider {
+
+    /** Только самотест: биомы по высоте (ад ниже -150, болото -150..-1), выше — биом столбца */
+    static volatile boolean biomesByHeight;
+
+    @Override
+    public BiomeGenBase getBiome(World world, int x, int y, int z, BiomeGenBase columnBiome) {
+        if (!biomesByHeight || y >= 0) {
+            return null;
+        }
+        return y < -150 ? BiomeGenBase.hell : BiomeGenBase.swampland;
+    }
 
     @Override
     public String getDimensionName() {

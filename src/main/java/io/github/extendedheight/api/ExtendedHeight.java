@@ -33,6 +33,11 @@ public final class ExtendedHeight {
         return !getRange(world).isVanilla();
     }
 
+    /** Биом в точке: через {@link IBiomeAtProvider} мира, иначе биом столбца */
+    public static net.minecraft.world.biome.BiomeGenBase getBiome(World world, int x, int y, int z) {
+        return io.github.extendedheight.core.BiomeLookup.at(world, x, y, z);
+    }
+
     /** Нижний допустимый y блока (0 в ванильных мирах) */
     public static int getMinY(World world) {
         return getRange(world).minY;

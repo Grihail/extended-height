@@ -220,6 +220,7 @@ public final class ClientSelfTest {
                 }
                 checkPlayerAt(mc, ClientEntityTests.Y);
                 checkVoidEffects(mc);
+                checkBiomesAt(mc);
                 entities.spawnEntities();
                 return true;
             case 10:
@@ -508,6 +509,56 @@ public final class ClientSelfTest {
             EhConfig.voidParticleIntensity = intensity;
             EhConfig.voidFog = fogSetting;
         }
+    }
+
+    /** Вариант C на клиенте: цвета и цвет неба по биому мира в (x, y, z) */
+    private void checkBiomesAt(Minecraft mc) {
+        World w = mc.theWorld;
+        int x = MathHelper.floor_double(mc.thePlayer.posX), z = MathHelper.floor_double(mc.thePlayer.posZ);
+        int waterColumn = Blocks.water.colorMultiplier(w, x, -100, z);
+        int skyBefore = freshSky(w, x, -100, z);
+        WorldTypeExtendedTest.testBiomesByHeight = true;
+        try {
+            report.check(
+                "biome at (x, y, z): swampland at y -100, desert at y 100 (world's IBiomeAtProvider)",
+                ExtendedHeight.getBiome(w, x, -100, z) == net.minecraft.world.biome.BiomeGenBase.swampland
+                    && ExtendedHeight.getBiome(w, x, 100, z) == net.minecraft.world.biome.BiomeGenBase.desert,
+                null);
+            int waterBelow = Blocks.water.colorMultiplier(w, x, -100, z);
+            int waterAbove = Blocks.water.colorMultiplier(w, x, 100, z);
+            report.check(
+                "water colour: swamp colour at y -100, desert (white) at y 100",
+                waterBelow == (net.minecraft.world.biome.BiomeGenBase.swampland.getWaterColorMultiplier() & 0xFFFFFF)
+                    && waterAbove == 0xFFFFFF,
+                Integer.toHexString(waterBelow) + " / "
+                    + Integer.toHexString(waterAbove)
+                    + ", column "
+                    + Integer.toHexString(waterColumn));
+            int grassBelow = Blocks.grass.colorMultiplier(w, x, -100, z);
+            int grassAbove = Blocks.grass.colorMultiplier(w, x, 100, z);
+            report.check(
+                "grass colour differs between y -100 (swamp) and y 100 (desert)",
+                grassBelow != grassAbove,
+                Integer.toHexString(grassBelow));
+            int skyBelow = freshSky(w, x, -100, z);
+            int skyAbove = freshSky(w, x, 100, z);
+            report.check(
+                "sky colour at the same x/z follows the camera y (swamp at -100, desert at 100; Forge cache dropped)",
+                skyBelow != skyAbove,
+                Integer.toHexString(skyBelow) + " / " + Integer.toHexString(skyAbove));
+        } finally {
+            WorldTypeExtendedTest.testBiomesByHeight = false;
+        }
+        report.check(
+            "without the world's answer: water and sky colour of the column biome, as before",
+            Blocks.water.colorMultiplier(w, x, -100, z) == waterColumn && freshSky(w, x, 100, z) == skyBefore,
+            null);
+    }
+
+    /** Цвет неба сейчас: кеш Forge сбрасываем вызовом на другом y */
+    private static int freshSky(World w, int x, int y, int z) {
+        net.minecraftforge.client.ForgeHooksClient.getSkyBlendColour(w, x, y + 1, z);
+        return net.minecraftforge.client.ForgeHooksClient.getSkyBlendColour(w, x, y, z);
     }
 
     private static int voidParticles(Minecraft mc, int x, int z) {

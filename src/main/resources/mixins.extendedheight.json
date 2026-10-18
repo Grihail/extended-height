@@ -10,6 +10,17 @@
     "defaultRequire": 1
   },
   "mixins": [
+    "early.ChunkCacheAccessor",
+    "early.biome.MixinBedBiomeAt",
+    "early.biome.MixinChunkProvidersBiomeAt",
+    "early.biome.MixinMoveIndoorsBiomeAt",
+    "early.biome.MixinPlantFlowerBiomeAt",
+    "early.biome.MixinPlayerBiomeAt",
+    "early.biome.MixinSlimeBiomeAt",
+    "early.biome.MixinSnowmanBiomeAt",
+    "early.biome.MixinWorldBiomeAt",
+    "early.biome.MixinWorldProviderBiomeAt",
+    "early.biome.MixinWorldServerBiomeAt",
     "early.DerivedWorldInfoAccessor",
     "early.MixinAnvilChunkLoader",
     "early.MixinChunk",
@@ -56,6 +67,10 @@
     "early.ycast.MixinZombieY"
   ],
   "client": [
+    "early.client.MixinBiomeColorsAt",
+    "early.client.MixinF3BiomeAt",
+    "early.client.MixinRainBiomeAt",
+    "early.client.MixinSkyBlendBiomeAt",
     "early.client.EntityRendererAccessor",
     "early.client.MixinChunkCacheClient",
     "early.client.MixinChunkClient",
