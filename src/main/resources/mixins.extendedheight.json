@@ -77,6 +77,7 @@
     "early.client.MixinChunkCacheClient",
     "early.client.MixinChunkClient",
     "early.client.MixinEntityPosition",
+    "early.client.MixinEntityRendererDistance",
     "early.client.MixinEntityRendererVoidFog",
     "early.client.MixinEntitySpawnY",
     "early.client.MixinNetHandlerPlayClient",

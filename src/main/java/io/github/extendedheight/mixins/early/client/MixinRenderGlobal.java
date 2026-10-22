@@ -7,6 +7,7 @@ import net.minecraft.client.multiplayer.WorldClient;
 import net.minecraft.client.renderer.GLAllocation;
 import net.minecraft.client.renderer.RenderGlobal;
 import net.minecraft.client.renderer.WorldRenderer;
+import net.minecraft.client.settings.GameSettings;
 import net.minecraft.util.MathHelper;
 import net.minecraft.world.World;
 
@@ -21,6 +22,7 @@ import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 
 import io.github.extendedheight.api.ExtendedHeight;
 import io.github.extendedheight.api.HeightRange;
+import io.github.extendedheight.core.RenderDistanceLimit;
 
 /** Рендер-чанки на весь диапазон (6.1-6.3): сетка от minY; для высокой сетки один раз выделяется больший блок */
 @Mixin(RenderGlobal.class)
@@ -68,6 +70,19 @@ public abstract class MixinRenderGlobal {
     @Unique
     private HeightRange eh$range() {
         return theWorld == null ? HeightRange.VANILLA : ExtendedHeight.getRange((World) theWorld);
+    }
+
+    /** Лимит дальности 16 в расширенном мире; loadRenderers и sortAndRender должны читать одно значение */
+    @Redirect(
+        method = { "loadRenderers", "sortAndRender" },
+        at = @At(
+            value = "FIELD",
+            target = "Lnet/minecraft/client/settings/GameSettings;renderDistanceChunks:I",
+            opcode = 180 /* GETFIELD */),
+        require = 2,
+        allow = 2)
+    private int eh$limitRenderDistance(GameSettings settings) {
+        return RenderDistanceLimit.clamp(theWorld != null && !eh$range().isVanilla(), settings.renderDistanceChunks);
     }
 
     @Inject(method = "loadRenderers", at = @At("HEAD"), require = 1, allow = 1)
