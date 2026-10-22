@@ -13,6 +13,7 @@ import net.minecraft.network.Packet;
 import net.minecraft.network.PacketBuffer;
 import net.minecraft.network.play.client.C07PacketPlayerDigging;
 import net.minecraft.network.play.client.C08PacketPlayerBlockPlacement;
+import net.minecraft.network.play.server.S21PacketChunkData;
 import net.minecraft.network.play.server.S23PacketBlockChange;
 import net.minecraft.network.play.server.S28PacketEffect;
 
@@ -138,6 +139,16 @@ public final class ExtPackets {
                     SENT.incrementAndGet(BLOCK);
                 }
             }
+        } else if (type == S21PacketChunkData.class) {
+            // Любой мод может отправить ванильный S21 — для расширенного мира он заменяется
+            if (S21_SWAP && handler instanceof NetHandlerPlayServer && packet instanceof IVanillaChunkPacket) {
+                IVanillaChunkPacket p = (IVanillaChunkPacket) packet;
+                long mask = extendedMask(p.eh$isFull(), p.eh$getFlags());
+                if (p.eh$getChunk() != null && mask != 0L) {
+                    packet = new SPacketExtChunkData(p.eh$getChunk(), p.eh$isFull(), mask);
+                    VANILLA_CHUNK_SWAPS.incrementAndGet();
+                }
+            }
         } else if (type == S28PacketEffect.class) {
             if (handler instanceof NetHandlerPlayServer) {
                 S28PacketEffect p = (S28PacketEffect) packet;
@@ -172,6 +183,23 @@ public final class ExtPackets {
             packet = roundTrip(packet);
         }
         return packet;
+    }
+
+    /** -Dextendedheight.s21Swap=false выключает замену S21 (проверка должна упасть) */
+    private static final boolean S21_SWAP = !"false".equals(System.getProperty("extendedheight.s21Swap"));
+
+    /** Ванильные S21 расширенных миров, заменённые расширенным пакетом (диагностика) */
+    public static final java.util.concurrent.atomic.AtomicInteger VANILLA_CHUNK_SWAPS = new java.util.concurrent.atomic.AtomicInteger();
+
+    /** Расширенная маска секций для ванильного S21 по flags */
+    public static long extendedMask(boolean full, int flags) {
+        if (flags == 0) {
+            return 0L;
+        }
+        if (full && (flags & 0xFFFF) == 0xFFFF) {
+            return -1L;
+        }
+        return flags & 0xFFFFFFFFL;
     }
 
     /** Маркер расширенных пакетов (круговая проверка самотеста) */

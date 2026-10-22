@@ -50,6 +50,7 @@
     "early.net.MixinNetHandlerPlayServer",
     "early.net.MixinNetworkManager",
     "early.net.MixinPlayerInstance",
+    "early.net.MixinS21PacketChunkData",
     "early.net.PlayerManagerAccessor",
     "early.net.S23Accessor",
     "early.net.S28Accessor",

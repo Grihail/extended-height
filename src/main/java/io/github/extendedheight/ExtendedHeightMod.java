@@ -19,6 +19,7 @@ import io.github.extendedheight.core.EhConfig;
 import io.github.extendedheight.core.MixinPlugin;
 import io.github.extendedheight.net.ExtPackets;
 import io.github.extendedheight.selftest.SelfTest;
+import io.github.extendedheight.selftest.VanillaS21Injector;
 import io.github.extendedheight.world.WorldTypeExtendedTest;
 
 @Mod(
@@ -60,6 +61,7 @@ public class ExtendedHeightMod {
 
     @Mod.EventHandler
     public void serverStarted(FMLServerStartedEvent event) {
+        VanillaS21Injector.registerIfEnabled();
         // В клиентской фазе это встроенный сервер тестового мира: тест ведёт клиентская часть
         if (SelfTest.isActive() && !SelfTest.isClientPhase()) {
             SelfTest.serverStarted(MinecraftServer.getServer());
