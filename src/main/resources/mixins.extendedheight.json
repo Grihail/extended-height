@@ -87,6 +87,10 @@
     "early.client.MixinWorldClientInit",
     "early.client.MixinWorldClientLight",
     "early.client.MixinWorldClientVoid",
+    "early.client.angelica.MixinAngelicaRenderSectionManager",
+    "early.client.angelica.MixinCeleritasWorldRenderer",
+    "early.client.angelica.MixinClonedChunkSection",
+    "early.client.angelica.MixinWorldSlice",
     "early.client.WorldClientAccessor"
   ],
   "server": []

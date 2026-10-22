@@ -34,6 +34,9 @@
  * For more details, see https://docs.gradle.org/8.0.1/userguide/java_library_plugin.html#sec:java_library_configurations_graph
  */
 dependencies {
+    // Интеграция с Angelica (вариант B): её классы — цели миксинов mixins/early/client/angelica
+    compileOnly("com.github.GTNewHorizons:Angelica:2.2.35:dev") { transitive = false }
+    compileOnly("org.joml:joml:1.10.8") // ChunkSectionPos наследует Vector3i
     testImplementation(platform("org.junit:junit-bom:5.10.2"))
     testImplementation("org.junit.jupiter:junit-jupiter")
     testRuntimeOnly("org.junit.platform:junit-platform-launcher")

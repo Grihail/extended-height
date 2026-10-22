@@ -48,6 +48,10 @@ public class MixinPlugin implements IMixinConfigPlugin {
             || mixinClassName.endsWith(".client.MixinEntityRendererDistance"))) {
             return false;
         }
+        // Миксины на классы Angelica (вариант B) есть только вместе с Angelica
+        if (!ANGELICA && mixinClassName.contains(".client.angelica.")) {
+            return false;
+        }
         return !DISABLED;
     }
 
