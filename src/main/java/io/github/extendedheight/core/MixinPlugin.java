@@ -34,8 +34,24 @@ public class MixinPlugin implements IMixinConfigPlugin {
         return null;
     }
 
+    /** С Angelica миксины ванильного рендера не применяются — диапазон получает Angelica */
+    private static final boolean ANGELICA = MixinPlugin.class
+        .getResource("/com/gtnewhorizons/angelica/loading/AngelicaTweaker.class") != null;
+
+    public static boolean angelicaPresent() {
+        return ANGELICA;
+    }
+
     @Override
     public boolean shouldApplyMixin(String targetClassName, String mixinClassName) {
+        if (ANGELICA && (mixinClassName.endsWith(".client.MixinRenderGlobal")
+            || mixinClassName.endsWith(".client.MixinEntityRendererDistance"))) {
+            return false;
+        }
+        // Миксины на классы Angelica (вариант B) есть только вместе с Angelica
+        if (!ANGELICA && mixinClassName.contains(".client.angelica.")) {
+            return false;
+        }
         return !DISABLED;
     }
 

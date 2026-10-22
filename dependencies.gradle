@@ -34,6 +34,9 @@
  * For more details, see https://docs.gradle.org/8.0.1/userguide/java_library_plugin.html#sec:java_library_configurations_graph
  */
 dependencies {
+    // Интеграция с Angelica (вариант B): её классы — цели миксинов mixins/early/client/angelica
+    compileOnly("com.github.GTNewHorizons:Angelica:2.2.35:dev") { transitive = false }
+    compileOnly("org.joml:joml:1.10.8") // ChunkSectionPos наследует Vector3i
     testImplementation(platform("org.junit:junit-bom:5.10.2"))
     testImplementation("org.junit.jupiter:junit-jupiter")
     testRuntimeOnly("org.junit.platform:junit-platform-launcher")
@@ -60,6 +63,35 @@ if (ehWorkDir) {
             obfModsSource.listFiles().each { File jar ->
                 java.nio.file.Files.copy(jar.toPath(), new File(obfModsTarget, jar.name).toPath(),
                     java.nio.file.StandardCopyOption.REPLACE_EXISTING)
+            }
+        }
+    }
+}
+
+// Деплой: ./gradlew deployMod -PmodsDir="<instance>/.minecraft/mods" — собирает jar и заменяет им старые
+afterEvaluate {
+    def modsDirValue = providers.gradleProperty('modsDir').orNull
+    def jarName = base.archivesName.get()
+    def jarVersion = project.version.toString()
+    tasks.register('removeDeployedMod', Delete) {
+        group = 'build'
+        description = 'Removes the jars of this mod from the folder given by modsDir'
+        enabled = modsDirValue != null
+        if (modsDirValue != null) {
+            delete fileTree(dir: modsDirValue, include: "${jarName}-*.jar")
+        }
+    }
+    tasks.register('deployMod', Copy) {
+        group = 'build'
+        description = 'Builds the mod and copies its jar into the mods folder given by -PmodsDir'
+        dependsOn 'assemble', 'removeDeployedMod'
+        from(layout.buildDirectory.dir('libs')) {
+            include "${jarName}-${jarVersion}.jar"
+        }
+        into(modsDirValue ?: layout.buildDirectory.dir('deploy').get().asFile.path)
+        doFirst {
+            if (modsDirValue == null) {
+                throw new GradleException('Set modsDir: gradlew deployMod -PmodsDir="<instance>/.minecraft/mods" (or modsDir=... in ~/.gradle/gradle.properties)')
             }
         }
     }

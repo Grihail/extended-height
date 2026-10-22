@@ -50,6 +50,7 @@
     "early.net.MixinNetHandlerPlayServer",
     "early.net.MixinNetworkManager",
     "early.net.MixinPlayerInstance",
+    "early.net.MixinS21PacketChunkData",
     "early.net.PlayerManagerAccessor",
     "early.net.S23Accessor",
     "early.net.S28Accessor",
@@ -77,6 +78,7 @@
     "early.client.MixinChunkCacheClient",
     "early.client.MixinChunkClient",
     "early.client.MixinEntityPosition",
+    "early.client.MixinEntityRendererDistance",
     "early.client.MixinEntityRendererVoidFog",
     "early.client.MixinEntitySpawnY",
     "early.client.MixinNetHandlerPlayClient",
@@ -85,6 +87,10 @@
     "early.client.MixinWorldClientInit",
     "early.client.MixinWorldClientLight",
     "early.client.MixinWorldClientVoid",
+    "early.client.angelica.MixinAngelicaRenderSectionManager",
+    "early.client.angelica.MixinCeleritasWorldRenderer",
+    "early.client.angelica.MixinClonedChunkSection",
+    "early.client.angelica.MixinWorldSlice",
     "early.client.WorldClientAccessor"
   ],
   "server": []
