@@ -20,7 +20,7 @@ import io.github.extendedheight.core.MixinPlugin;
 import io.github.extendedheight.net.ExtPackets;
 import io.github.extendedheight.selftest.SelfTest;
 import io.github.extendedheight.selftest.VanillaS21Injector;
-import io.github.extendedheight.world.WorldTypeExtendedTest;
+import io.github.extendedheight.selftest.WorldTypeExtendedTest;
 
 @Mod(
     modid = ExtendedHeightMod.MODID,
@@ -41,7 +41,10 @@ public class ExtendedHeightMod {
         EhConfig.load(event.getSuggestedConfigurationFile());
         if (!MixinPlugin.mixinsDisabled()) {
             ExtPackets.register();
-            WorldTypeExtendedTest.register();
+            EhConfig.registerVanillaWorldTypes();
+            if (SelfTest.isActive()) {
+                WorldTypeExtendedTest.register();
+            }
             if (event.getSide()
                 .isClient()) {
                 ClientRanges.init();

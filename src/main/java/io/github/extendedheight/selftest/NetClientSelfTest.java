@@ -28,7 +28,6 @@ import io.github.extendedheight.ExtendedHeightMod;
 import io.github.extendedheight.api.ExtendedHeight;
 import io.github.extendedheight.api.HeightRange;
 import io.github.extendedheight.net.ExtPackets;
-import io.github.extendedheight.world.WorldTypeExtendedTest;
 
 /** Клиент сетевого самотеста: net-client проверяет синхронизацию и правки, net-nomod — отказ без мода */
 public final class NetClientSelfTest {

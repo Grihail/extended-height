@@ -3,7 +3,7 @@
 	"modList": [{
 		"modid": "${modId}",
 		"name": "${modName}",
-		"description": "Library: extends the world height range (for example -256..319) for dimensions and world types that opt in through its API. Worlds that do not opt in stay exactly vanilla. Required on both server and client (needs UniMixins). Integrates with Angelica automatically when it is installed.",
+		"description": "Library: extends the world height range (for example -256..319) for dimensions and world types that opt in through its API. New overworlds of vanilla world types get -256..511 (configurable, vanilla 0..255 can be restored in the config); other worlds that do not opt in stay exactly vanilla. Required on both server and client (needs UniMixins). Integrates with Angelica automatically when it is installed.",
 		"version": "${modVersion}",
 		"mcversion": "${minecraftVersion}",
 		"url": "",

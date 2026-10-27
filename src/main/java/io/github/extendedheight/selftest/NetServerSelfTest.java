@@ -19,7 +19,6 @@ import io.github.extendedheight.ExtendedHeightMod;
 import io.github.extendedheight.api.ExtendedHeight;
 import io.github.extendedheight.api.HeightRange;
 import io.github.extendedheight.net.ExtPackets;
-import io.github.extendedheight.world.WorldTypeExtendedTest;
 
 /** Выделенный сервер сетевого самотеста: клиент с модом управляет командами чата ehtest:<команда> */
 public final class NetServerSelfTest {

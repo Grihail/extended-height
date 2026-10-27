@@ -1,4 +1,4 @@
-package io.github.extendedheight.world;
+package io.github.extendedheight.selftest;
 
 import java.util.Collections;
 import java.util.List;
@@ -23,7 +23,7 @@ import io.github.extendedheight.api.IBiomeAtProvider;
 import io.github.extendedheight.api.IVoidEffectsProvider;
 import io.github.extendedheight.api.VoidEffects;
 
-/** Тип мира для пробы расширенной высоты: -256..319, равнины, без мобов; шерсть по секциям, столб-маркер */
+/** Тип мира самотеста: -256..319, равнины, без мобов; шерсть по секциям, бедрок на -64, столб-маркер */
 public class WorldTypeExtendedTest extends WorldType implements IVoidEffectsProvider, IBiomeAtProvider {
 
     public static final String NAME = "extendedtest";
@@ -41,12 +41,7 @@ public class WorldTypeExtendedTest extends WorldType implements IVoidEffectsProv
     public static volatile boolean testBiomesByHeight;
 
     private WorldTypeExtendedTest() {
-        this(NAME);
-    }
-
-    /** Для вариантов тестового мира ({@link WorldTypeExtendedBiomes}) */
-    protected WorldTypeExtendedTest(String name) {
-        super(name);
+        super(NAME);
     }
 
     /** Создаёт тип мира и запрашивает диапазон; вызывать один раз в pre-init */
@@ -54,7 +49,6 @@ public class WorldTypeExtendedTest extends WorldType implements IVoidEffectsProv
         if (instance == null) {
             instance = new WorldTypeExtendedTest();
             ExtendedHeight.register(instance, MIN_Y, MAX_Y);
-            WorldTypeExtendedBiomes.registerType();
         }
     }
 
@@ -109,11 +103,11 @@ public class WorldTypeExtendedTest extends WorldType implements IVoidEffectsProv
         return (y & 15) == 0 ? Math.floorMod(y >> 4, 16) : 0;
     }
 
-    public static class Generator implements IChunkProvider {
+    static class Generator implements IChunkProvider {
 
-        protected final World world;
+        private final World world;
 
-        protected Generator(World world) {
+        Generator(World world) {
             this.world = world;
         }
 
@@ -135,12 +129,8 @@ public class WorldTypeExtendedTest extends WorldType implements IVoidEffectsProv
                     primer.setBlock(0, y, 0, columnBlock(y), columnMeta(y));
                 }
             }
-            addFeatures(primer, cx, cz);
             return primer.toChunk(world, cx, cz);
         }
-
-        /** Дополнительные блоки варианта тестового мира до сборки чанка */
-        protected void addFeatures(ExtendedChunkPrimer primer, int cx, int cz) {}
 
         @Override
         public boolean chunkExists(int x, int z) {

@@ -43,6 +43,9 @@ public class SelfTestWorldProvider extends WorldProvider implements IBiomeAtProv
         return false;
     }
 
+    /** Только самотест: список монстров пустого генератора (null — никого) */
+    static volatile List<BiomeGenBase.SpawnListEntry> testMonsters;
+
     public static class EmptyChunkProvider implements IChunkProvider {
 
         private final World world;
@@ -93,7 +96,8 @@ public class SelfTestWorldProvider extends WorldProvider implements IBiomeAtProv
 
         @Override
         public List getPossibleCreatures(EnumCreatureType type, int x, int y, int z) {
-            return Collections.emptyList();
+            List<BiomeGenBase.SpawnListEntry> list = testMonsters;
+            return list != null && type == EnumCreatureType.monster ? list : Collections.emptyList();
         }
 
         @Override

@@ -24,7 +24,8 @@ public final class VoidEffectsResolver {
         VoidEffects chosen = worldChoice(world);
         boolean builtIn = chosen == null;
         if (builtIn) {
-            chosen = VoidEffects.of(false, EhConfig.voidParticlesFollowMinY ? range.minY : 0, BUILT_IN_INTENSITY);
+            boolean vanillaFog = isVanillaOverworld(world) && EhConfig.vanillaWorldVoidFog;
+            chosen = VoidEffects.of(vanillaFog, EhConfig.voidParticlesFollowMinY ? range.minY : 0, BUILT_IN_INTENSITY);
         }
         boolean fog;
         switch (EhConfig.voidFog) {
@@ -39,6 +40,18 @@ public final class VoidEffectsResolver {
         }
         float intensity = chosen.particleIntensity * (float) EhConfig.voidParticleIntensity;
         return VoidEffects.of(fog, chosen.particleBaseY, Math.max(0.0F, Math.min(1.0F, intensity)));
+    }
+
+    /** y отсчёта затемнения: 0 в верхнем мире ванильного типа при vanillaWorldVoidFog, иначе minY */
+    public static int fogBaseY(World world) {
+        return isVanillaOverworld(world) && EhConfig.vanillaWorldVoidFog && worldChoice(world) == null ? 0
+            : ExtendedHeight.getMinY(world);
+    }
+
+    private static boolean isVanillaOverworld(World world) {
+        return world.provider.dimensionId == 0 && EhConfig.isVanillaWorldType(
+            world.getWorldInfo()
+                .getTerrainType());
     }
 
     /** Выбор провайдера мира, иначе типа мира (только измерение 0), иначе null */

@@ -14,7 +14,7 @@ import io.github.extendedheight.api.ExtendedHeight;
 import io.github.extendedheight.api.HeightRange;
 import io.github.extendedheight.core.VoidEffectsResolver;
 
-/** Затемнение пустоты (6.6) в расширенных мирах по VoidEffectsResolver, отсчёт от minY */
+/** Затемнение пустоты (6.6) в расширенных мирах по VoidEffectsResolver, отсчёт от fogBaseY */
 @Mixin(EntityRenderer.class)
 public abstract class MixinEntityRendererVoidFog {
 
@@ -37,7 +37,9 @@ public abstract class MixinEntityRendererVoidFog {
             return d0;
         }
         WorldProvider provider = mc.theWorld.provider;
-        return VoidEffectsResolver.effective(mc.theWorld).fog ? d0 - range.minY * provider.getVoidFogYFactor() : 1.0D;
+        return VoidEffectsResolver.effective(mc.theWorld).fog
+            ? d0 - VoidEffectsResolver.fogBaseY(mc.theWorld) * provider.getVoidFogYFactor()
+            : 1.0D;
     }
 
     @Redirect(
@@ -53,13 +55,13 @@ public abstract class MixinEntityRendererVoidFog {
         return vanilla && VoidEffectsResolver.effective(mc.theWorld).fog;
     }
 
-    /** d0 = skyLight / 16 + (y + 4) / 32 от minY */
+    /** d0 = skyLight / 16 + (y + 4) / 32 от базового y тумана */
     @ModifyVariable(method = "setupFog", at = @At(value = "STORE", ordinal = 0), ordinal = 0, require = 1, allow = 1)
     private double eh$fogDistanceDepth(double d0) {
         if (mc.theWorld == null) {
             return d0;
         }
         HeightRange range = ExtendedHeight.getRange(mc.theWorld);
-        return range.isVanilla() ? d0 : d0 - range.minY / 32.0D;
+        return range.isVanilla() ? d0 : d0 - VoidEffectsResolver.fogBaseY(mc.theWorld) / 32.0D;
     }
 }

@@ -1,11 +1,14 @@
 package io.github.extendedheight.selftest;
 
+import java.util.ArrayList;
+import java.util.Collections;
 import java.util.List;
 import java.util.Random;
 
 import net.minecraft.block.Block;
 import net.minecraft.entity.EnumCreatureType;
 import net.minecraft.entity.item.EntityFallingBlock;
+import net.minecraft.entity.monster.EntityZombie;
 import net.minecraft.entity.passive.EntityCow;
 import net.minecraft.entity.passive.EntityPig;
 import net.minecraft.init.Blocks;
@@ -13,8 +16,14 @@ import net.minecraft.pathfinding.PathEntity;
 import net.minecraft.pathfinding.PathPoint;
 import net.minecraft.util.AxisAlignedBB;
 import net.minecraft.world.ChunkPosition;
+import net.minecraft.world.EnumDifficulty;
+import net.minecraft.world.EnumSkyBlock;
+import net.minecraft.world.SpawnerAnimals;
 import net.minecraft.world.WorldServer;
+import net.minecraft.world.biome.BiomeGenBase;
 import net.minecraft.world.chunk.Chunk;
+import net.minecraftforge.common.util.FakePlayer;
+import net.minecraftforge.common.util.FakePlayerFactory;
 
 import io.github.extendedheight.api.ExtendedHeight;
 import io.github.extendedheight.api.HeightRange;
@@ -46,6 +55,8 @@ final class ServerEntityTests {
             }
         }
         spawnPosition();
+        monsterSpawnBelowZero();
+        naturalSpawningBelowZero();
         fallingBlocks();
         fallingBlockEntity();
         safePoint();
@@ -120,6 +131,7 @@ final class ServerEntityTests {
             error != null ? error : minY + ".." + maxY + " (top " + top + ")");
 
         ext.setBlock(BASE_X + 16, 300, BASE_Z, Blocks.stone, 0, 3);
+        ext.setBlock(BASE_X + 16, -200, BASE_Z, Blocks.stone, 0, 3);
         int below = 0;
         minY = Integer.MAX_VALUE;
         for (int i = 0; i < 300; i++) {
@@ -130,9 +142,94 @@ final class ServerEntityTests {
             }
         }
         report.check(
-            "7.6 spawn positions of a chunk with blocks up to 300 reach below 0 (and not below minY)",
-            below > 0 && minY >= range.minY,
+            "7.6 spawn positions of a chunk with blocks from -200 up to 300 reach below 0 (and not below its lowest section)",
+            below > 0 && minY >= -208,
             below + " of 300 below 0, lowest " + minY);
+    }
+
+    /** Естественный спавн монстра в тёмной комнате на y -100 проходит те же проверки, что выше 0 */
+    private void monsterSpawnBelowZero() {
+        int x0 = BASE_X + 160, z0 = BASE_Z, floor = -101;
+        for (int x = x0 - 3; x <= x0 + 3; x++) {
+            for (int z = z0 - 3; z <= z0 + 3; z++) {
+                for (int y = floor; y <= floor + 4; y++) {
+                    boolean shell = y == floor || y == floor + 4 || Math.abs(x - x0) == 3 || Math.abs(z - z0) == 3;
+                    ext.setBlock(x, y, z, shell ? Blocks.stone : Blocks.air, 0, 3);
+                }
+            }
+        }
+        int y = floor + 1;
+        EnumDifficulty difficulty = ext.difficultySetting;
+        ext.difficultySetting = EnumDifficulty.NORMAL;
+        try {
+            boolean location = SpawnerAnimals.canCreatureTypeSpawnAtLocation(EnumCreatureType.monster, ext, x0, y, z0);
+            EntityZombie zombie = new EntityZombie(ext);
+            zombie.setLocationAndAngles(x0 + 0.5D, y, z0 + 0.5D, 0.0F, 0.0F);
+            boolean canSpawn = zombie.getCanSpawnHere();
+            report.check(
+                "monster spawning in a dark room at y -100: location accepted and the zombie can spawn there",
+                location && canSpawn,
+                "location " + location
+                    + ", getCanSpawnHere "
+                    + canSpawn
+                    + ", sky light "
+                    + ext.getSavedLightValue(EnumSkyBlock.Sky, x0, y, z0)
+                    + ", light "
+                    + ext.getBlockLightValue(x0, y, z0)
+                    + ", collisions "
+                    + ext.getCollidingBoundingBoxes(zombie, zombie.boundingBox)
+                        .size()
+                    + ", liquid "
+                    + ext.isAnyLiquid(zombie.boundingBox)
+                    + ", path weight "
+                    + zombie.getBlockPathWeight(x0, y, z0));
+        } finally {
+            ext.difficultySetting = difficulty;
+        }
+    }
+
+    /** Настоящий цикл спавна заполняет тёмную полость на y -100 зомби; фейк-игрок висит на 40 выше */
+    private void naturalSpawningBelowZero() {
+        int x0 = BASE_X + 256, z0 = BASE_Z, floor = -101;
+        for (int x = x0; x < x0 + 32; x++) {
+            for (int z = z0; z < z0 + 32; z++) {
+                ext.setBlock(x, floor, z, Blocks.stone, 0, 2);
+                ext.setBlock(x, floor + 4, z, Blocks.stone, 0, 2);
+            }
+        }
+        FakePlayer player = FakePlayerFactory.getMinecraft(ext);
+        player.setPosition(x0 + 16, floor + 40, z0 + 16);
+        EnumDifficulty difficulty = ext.difficultySetting;
+        ext.difficultySetting = EnumDifficulty.NORMAL;
+        SelfTestWorldProvider.testMonsters = Collections
+            .singletonList(new BiomeGenBase.SpawnListEntry(EntityZombie.class, 100, 4, 4));
+        ext.playerEntities.add(player);
+        int below = 0, other = 0;
+        try {
+            SpawnerAnimals spawner = new SpawnerAnimals();
+            for (int i = 0; i < 200; i++) {
+                spawner.findChunksForSpawning(ext, true, false, false);
+            }
+        } finally {
+            ext.playerEntities.remove(player);
+            SelfTestWorldProvider.testMonsters = null;
+            ext.difficultySetting = difficulty;
+            for (Object o : new ArrayList<Object>(ext.loadedEntityList)) {
+                if (o instanceof EntityZombie) {
+                    EntityZombie zombie = (EntityZombie) o;
+                    if (zombie.posY < 0 && zombie.posY > floor) {
+                        below++;
+                    } else {
+                        other++;
+                    }
+                    zombie.setDead();
+                }
+            }
+        }
+        report.check(
+            "natural spawning (vanilla findChunksForSpawning) puts zombies into a dark cavity at y -100",
+            below > 0,
+            below + " zombies in the cavity, " + other + " elsewhere");
     }
 
     /** 8.4: ваниль падает только при y >= 0, мгновенное падение до y > 0 */
