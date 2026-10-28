@@ -4,7 +4,6 @@ import net.minecraft.world.ChunkPosition;
 import net.minecraft.world.SpawnerAnimals;
 import net.minecraft.world.World;
 import net.minecraft.world.chunk.Chunk;
-import net.minecraft.world.chunk.storage.ExtendedBlockStorage;
 
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.injection.At;
@@ -13,8 +12,9 @@ import org.spongepowered.asm.mixin.injection.callback.CallbackInfoReturnable;
 
 import io.github.extendedheight.api.ExtendedHeight;
 import io.github.extendedheight.api.HeightRange;
+import io.github.extendedheight.core.SpawnHeight;
 
-/** 7.6, точка спавна: y = bottom + nextInt(top + 15 - bottom) — спавн ниже 0 и без падения тика */
+/** 7.6, точка спавна: y = bottom + nextInt(top + 15 - bottom); путь Hodgepodge — в 7.6a */
 @Mixin(SpawnerAnimals.class)
 public abstract class MixinSpawnerAnimals {
 
@@ -27,20 +27,7 @@ public abstract class MixinSpawnerAnimals {
         Chunk chunk = world.getChunkFromChunkCoords(cx, cz);
         int x = cx * 16 + world.rand.nextInt(16);
         int z = cz * 16 + world.rand.nextInt(16);
-        int top = chunk == null ? range.maxYExclusive() : chunk.getTopFilledSegment() + 16 - 1;
-        int bottom = chunk == null ? range.minY : eh$bottomFilledSegment(chunk, range);
-        int y = bottom + world.rand.nextInt(Math.max(1, top - bottom));
+        int y = SpawnHeight.randomY(world.rand, chunk, range);
         cir.setReturnValue(new ChunkPosition(x, y, z));
-    }
-
-    /** Нижний y нижней непустой секции; minY для пустого чанка */
-    private static int eh$bottomFilledSegment(Chunk chunk, HeightRange range) {
-        ExtendedBlockStorage[] storage = chunk.getBlockStorageArray();
-        for (ExtendedBlockStorage section : storage) {
-            if (section != null) {
-                return section.getYLocation();
-            }
-        }
-        return range.minY;
     }
 }

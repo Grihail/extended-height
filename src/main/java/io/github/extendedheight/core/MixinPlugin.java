@@ -1,15 +1,23 @@
 package io.github.extendedheight.core;
 
 import java.io.File;
+import java.io.IOException;
+import java.nio.charset.StandardCharsets;
+import java.nio.file.Files;
 import java.util.List;
 import java.util.Set;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
+
+import net.minecraft.launchwrapper.Launch;
 
 import org.apache.logging.log4j.LogManager;
 import org.spongepowered.asm.lib.tree.ClassNode;
+import org.spongepowered.asm.lib.tree.MethodNode;
 import org.spongepowered.asm.mixin.extensibility.IMixinConfigPlugin;
 import org.spongepowered.asm.mixin.extensibility.IMixinInfo;
 
-/** Плагин миксинов: выключатель для baseline самотеста (свойство extendedheight.disableMixins или файл) */
+/** Плагин миксинов: выключатель для baseline самотеста и выбор миксинов под Angelica и Hodgepodge */
 public class MixinPlugin implements IMixinConfigPlugin {
 
     public static final String DISABLE_FILE = "extendedheight-disable-mixins";
@@ -42,8 +50,57 @@ public class MixinPlugin implements IMixinConfigPlugin {
         return ANGELICA;
     }
 
+    /** Метод, который MixinSpawnerAnimals_optimizeSpawning из Hodgepodge добавляет в SpawnerAnimals */
+    static final String HODGEPODGE_SPAWN_METHOD = "hodgepodge$getRandomPosInChunk";
+
+    private static final String HODGEPODGE_SPAWN_MIXIN = "/com/mitchej123/hodgepodge/mixins/early/minecraft/"
+        + "MixinSpawnerAnimals_optimizeSpawning.class";
+
+    /** B:optimizeMobSpawning=<значение> в любой категории config/hodgepodge.cfg */
+    private static final Pattern HODGEPODGE_SPAWN_OPTION = Pattern
+        .compile("^\\s*B:\"?optimizeMobSpawning\"?\\s*=\\s*(\\S*)\\s*$");
+
+    private static Boolean hodgepodgeSpawning;
+
+    /** Применяет ли Hodgepodge optimizeSpawning: читаем его cfg как Forge (по умолчанию true), проверка в postApply */
+    public static synchronized boolean hodgepodgeSpawningPresent() {
+        if (hodgepodgeSpawning == null) {
+            hodgepodgeSpawning = MixinPlugin.class.getResource(HODGEPODGE_SPAWN_MIXIN) != null
+                && readHodgepodgeSpawningOption();
+            LogManager.getLogger("extendedheight")
+                .info(
+                    "Hodgepodge optimizeMobSpawning {}: the compatibility mixin for its spawn position is {}",
+                    hodgepodgeSpawning ? "is active" : "is not active",
+                    hodgepodgeSpawning ? "applied" : "skipped");
+        }
+        return hodgepodgeSpawning;
+    }
+
+    private static boolean readHodgepodgeSpawningOption() {
+        File home = Launch.minecraftHome != null ? Launch.minecraftHome : new File(".");
+        File cfg = new File(new File(home, "config"), "hodgepodge.cfg");
+        if (!cfg.isFile()) {
+            return true;
+        }
+        try {
+            for (String line : Files.readAllLines(cfg.toPath(), StandardCharsets.UTF_8)) {
+                Matcher m = HODGEPODGE_SPAWN_OPTION.matcher(line);
+                if (m.matches()) {
+                    return !"false".equalsIgnoreCase(m.group(1));
+                }
+            }
+        } catch (IOException | RuntimeException e) {
+            LogManager.getLogger("extendedheight")
+                .warn("Could not read {}, assuming Hodgepodge's default optimizeMobSpawning=true", cfg, e);
+        }
+        return true;
+    }
+
     @Override
     public boolean shouldApplyMixin(String targetClassName, String mixinClassName) {
+        if (mixinClassName.endsWith(".compat.MixinSpawnerAnimalsHodgepodge")) {
+            return !DISABLED && hodgepodgeSpawningPresent();
+        }
         if (ANGELICA && (mixinClassName.endsWith(".client.MixinRenderGlobal")
             || mixinClassName.endsWith(".client.MixinEntityRendererDistance"))) {
             return false;
@@ -66,6 +123,19 @@ public class MixinPlugin implements IMixinConfigPlugin {
     @Override
     public void preApply(String targetClassName, ClassNode targetClass, String mixinClassName, IMixinInfo mixinInfo) {}
 
+    /** Hodgepodge добавил свой метод спавна, а наш миксин пропущен — падаем при загрузке класса */
     @Override
-    public void postApply(String targetClassName, ClassNode targetClass, String mixinClassName, IMixinInfo mixinInfo) {}
+    public void postApply(String targetClassName, ClassNode targetClass, String mixinClassName, IMixinInfo mixinInfo) {
+        if (mixinClassName.endsWith(".early.MixinSpawnerAnimals") && !hodgepodgeSpawningPresent()) {
+            for (MethodNode method : targetClass.methods) {
+                if (HODGEPODGE_SPAWN_METHOD.equals(method.name)) {
+                    throw new IllegalStateException(
+                        "ExtendedHeight: Hodgepodge's optimized mob spawning (" + HODGEPODGE_SPAWN_METHOD
+                            + ") is applied to SpawnerAnimals, but its config was read as disabled, so the "
+                            + "ExtendedHeight compatibility mixin was skipped. Please report this with "
+                            + "config/hodgepodge.cfg and the Hodgepodge version.");
+                }
+            }
+        }
+    }
 }

@@ -181,6 +181,7 @@ ExtBlockChange` — игра не стартует, тихой перезапи�
 | 7.4 | `Entity.preparePlayerToSpawn` (клиент) | `while (posY > 0)` | `minY`. | Низкий |
 | 7.5 | `EntityFallingBlock.onUpdate` | `j < 1 \|\| j > 256` → выпасть предметом | `minY + 1 … maxY + 1`. | Низкий |
 | 7.6 | `SpawnerAnimals.func_151350_a` (случайная точка спавна) | `rand.nextInt(topFilledSegment + 15)` → мобы не спавнятся ниже 0. **Если верхняя заполненная секция отрицательная — `nextInt(≤ 0)` бросает `IllegalArgumentException`, краш тика.** | `bottom + rand.nextInt(top + 16 − bottom)`, где `bottom` — низ самой нижней существующей секции (зеркально ванильному `top`; пустой чанк — `minY`): чанк без блоков ниже 0 спавнит ровно как в ванили, а пустые секции внизу не размывают частоту спавна. | Высокий (краш) |
+| 7.6a | Hodgepodge `optimizeMobSpawning`: `SpawnerAnimals.hodgepodge$getRandomPosInChunk` (метод, добавленный миксином Hodgepodge) | Переписанный Hodgepodge `findChunksForSpawning` не зовёт `func_151350_a`, а берёт точку у себя по ванильной формуле: исправление 7.6 обходится, тот же краш тика. | `compat/MixinSpawnerAnimalsHodgepodge`: редирект третьего `Random.nextInt` этого метода на ту же высоту, что в 7.6. Применяется, только если Hodgepodge применяет свой миксин (раздел «Совместимость с оптимизацией спавна Hodgepodge» ниже). | Средний (цель — чужой миксин) |
 | 7.7 | `SpawnerAnimals.performWorldGenSpawning` | `getTopSolidOrLiquidBlock` | Чинится через 2.11. | Низкий |
 | 7.8 | `PathFinder.getSafePoint` (поиск точки приземления) | `while (y > 0)` | `minY`. | Низкий |
 | 7.9 | `PathPoint.makeHash` | `y & 255` | **Без изменений:** коллизия возможна только у точек на расстоянии 256 по y, а дальность поиска пути на порядок меньше. Упомяну в README. | Низкий |
@@ -371,6 +372,79 @@ write, измерение 4242. **Контроль:** с выключенным�
 
 Моды, которые сами читают `chunk.entityLists[entity.chunkCoordY]`, в расширенном мире получат выход за массив при
 отрицательной секции (README, «Известные ограничения»).
+
+## Совместимость с оптимизацией спавна Hodgepodge (7.6a, версия 1.0.1)
+
+**Симптом** (сборка Reverworld, Hodgepodge 2.7.218, `B:optimizeMobSpawning=true` — значение по умолчанию):
+суперплоский мир −256…511, слои у дна, сервер падает примерно через 110 тиков после входа:
+`IllegalArgumentException: bound must be positive` в `SpawnerAnimals.hodgepodge$getRandomPosInChunk` ←
+`SpawnerAnimals.func_77192_a` ← `WorldServer.tick`. То же — в любом чанке расширенного мира, у которого верхняя
+заполненная секция ниже y −15.
+
+**Причина** (байткод Hodgepodge 2.7.218). При `optimizeMobSpawning` Hodgepodge применяет
+`mixins.early.minecraft.MixinSpawnerAnimals_optimizeSpawning` (приоритет 900) с тремя `@Overwrite`:
+`func_77192_a` (`findChunksForSpawning`), `func_77190_a` (`canCreatureTypeSpawnAtLocation`), `func_77191_a`
+(`performWorldGenSpawning`) и добавленным `@Unique private BlockPos hodgepodge$getRandomPosInChunk(World, int, int)`
+(`BlockPos` из GTNHLib, один переиспользуемый объект). Переписанный `func_77192_a` берёт точку из этого метода, а не из
+`func_151350_a`, поэтому исправление 7.6 никто не вызывает (миксин 7.6 при этом применяется, аудит ничего не видит).
+В методе ванильная формула: `x = cx·16 + nextInt(16)`, `z = cz·16 + nextInt(16)`,
+`y = nextInt(chunk == null ? world.getHeight() : topFilledSegment + 15)`.
+
+**Исправление:** `mixins/early/compat/MixinSpawnerAnimalsHodgepodge` — `@Redirect` третьего вызова
+`Random.nextInt(I)I` (`ordinal = 2`, это `y`) в `hodgepodge$getRandomPosInChunk`, `@Dynamic`, `require = allow = 1`,
+приоритет 1100 (после Hodgepodge). Обработчик получает и аргументы метода (`World`, `cx`, `cz`):
+
+- ванильный мир — `rand.nextInt(исходная граница)`, то есть ровно код Hodgepodge;
+- расширенный — `SpawnHeight.randomY` (`core/SpawnHeight`), общий с 7.6: `bottom + nextInt(max(1, top − bottom))`.
+  Вызовы `world.rand` те же и в том же порядке, что в 7.6 (x, z, y — по одному `nextInt`).
+
+Почему редирект, а не `@Inject(HEAD, cancellable)`: оптимизация Hodgepodge (переиспользуемый `BlockPos`, его поля)
+остаётся нетронутой, порядок случайных чисел сохраняется сам собой, а тип GTNHLib `BlockPos` в коде мода не нужен —
+зависимость от GTNHLib не добавляется. `@ModifyArg` поменял бы только границу, а сдвиг на `bottom` потребовал бы второго
+инжектора.
+
+**`remap = false` и refmap.** Целевой метод добавлен чужим миксином, обфускационного имени у него нет: имя и дескриптор
+(`(Lnet/minecraft/world/World;II)Lcom/gtnewhorizon/gtnhlib/blockpos/BlockPos;`) одинаковы в dev и в игре, а
+`java/util/Random` не обфусцирован. Поэтому у инжектора и у `@At` стоит `remap = false`, и в
+`mixins.extendedheight.refmap.json` записей для этого миксина **нет** — так и должно быть. С `remap = true` annotation
+processor не нашёл бы метод в маппингах.
+
+**Когда применяется (правило `require = allow = N` сохранено).** Метод существует, только если Hodgepodge установлен и
+применяет свой миксин. `core/MixinPlugin.shouldApplyMixin` повторяет решение загрузчика Hodgepodge
+(`com.mitchej123.hodgepodge.mixins.Mixins.OPTIMIZE_MOB_SPAWNING`: `setApplyIf(SpeedupsConfig.optimizeMobSpawning)`, в
+2.7.218 других условий нет):
+
+- Hodgepodge есть — в classpath есть класс `MixinSpawnerAnimals_optimizeSpawning`;
+- настройка включена — строка `B:optimizeMobSpawning=…` в `<minecraftHome>/config/hodgepodge.cfg` читается так, как
+  её читает Forge: нет файла, нет ключа или значение не `true`/`false` — значение по умолчанию `true`. Класс конфига
+  Hodgepodge не трогается: в момент решения он может быть ещё не загружен.
+
+Решение логируется (`Hodgepodge optimizeMobSpawning is active/is not active …`). Ошибка решения в любую сторону
+роняет игру при загрузке `SpawnerAnimals`, а не молча:
+
+- миксин применён, а метода нет (Hodgepodge не применил свой миксин) — `require = 1`, `Critical injection failure`;
+- миксин пропущен, а метод есть — `MixinPlugin.postApply` (вызывается после применения **всех** миксинов класса,
+  в том числе Hodgepodge) находит `hodgepodge$getRandomPosInChunk` в целевом классе и бросает
+  `IllegalStateException` с объяснением.
+
+Без Hodgepodge и с `optimizeMobSpawning=false` миксин не применяется, всё идёт как в 1.0.0.
+
+**Проверка остальных переписанных методов Hodgepodge на 0…255** (по байткоду 2.7.218):
+
+- `func_77192_a` (`findChunksForSpawning`): кроме `hodgepodge$getRandomPosInChunk` от высоты ничего не зависит. `y`
+  точки берётся из `BlockPos` и дальше не меняется (ванильные `nextInt(1) − nextInt(1)` по y Hodgepodge просто убрал);
+  блоки — через `World.getBlock` (границы мира — раздел 2); расстояния до игрока (24) и до точки спавна (576) —
+  трёхмерные, как в ванили. Единственная константа 256 — число подходящих чанков для лимита мобов, не высота.
+  `getHeight()`, `getTopSolidOrLiquidBlock` и приведений `(int)` к y нет. Правка не нужна.
+- `func_77190_a` (`canCreatureTypeSpawnAtLocation`): как ваниль — `getBlock` в `y − 1`, `y`, `y + 1`,
+  `doesBlockHaveSolidTopSurface`, проверка бедрока. Порогов y нет. Правка не нужна.
+- `func_77191_a` (`performWorldGenSpawning`): как ваниль — `y = getTopSolidOrLiquidBlock(x, z)` (исправлен в 2.11,
+  поэтому в расширенном мире работает так же, как 7.7), позиция сущности — `(float)` от целых, без `(int)` от `double`.
+  Правка не нужна.
+
+**Не проверено:** в игре и самотестом с Hodgepodge исправление не запускалось (решение пользователя для 1.0.1; фаза
+самотеста для пути Hodgepodge — пункт 4 задачи — не написана). Проверены только сборка, юнит-тесты и содержимое
+refmap.
 
 ## Шаг 5 плана Reverworld: эффекты пустоты мира (API)
 

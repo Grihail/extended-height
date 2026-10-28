@@ -8,7 +8,7 @@
 Default_1_1): новые миры получают y −256…511, это можно изменить или вернуть ванильные 0…255 в конфиге (раздел
 `world`, см. «Конфиг»). Уже существующие миры сохраняют свою высоту.
 
-> **Версия 1.0.0.** Готовы: хранение, World API, сохранение, свет, сеть и рендер (3a), сущности и спавн ниже 0,
+> **Версия 1.0.1.** Готовы: хранение, World API, сохранение, свет, сеть и рендер (3a), сущности и спавн ниже 0,
 > API для генераторов (`ExtendedChunkPrimer`, `IBiomeAtProvider`, `IVoidEffectsProvider`). Не готовы: часть 3b (свет
 > клиента против сервера, горизонт, погода и облака у границ, худший случай S26, замеры), совместимость с OptiFine и
 > другими модами (веха 5).
@@ -17,7 +17,7 @@ Default_1_1): новые миры получают y −256…511, это мож
 ## Подключение
 
 Пока артефакт не опубликован в общем репозитории, его ставят в mavenLocal: `gradlew publishToMavenLocal` в этом
-проекте (координаты `io.github.extendedheight:extendedheight:1.0.0`, классификаторы `api`, `dev`, `sources` и
+проекте (координаты `io.github.extendedheight:extendedheight:1.0.1`, классификаторы `api`, `dev`, `sources` и
 основной обфусцированный jar). В своём моде (шаблон GTNH ExampleMod / RFG):
 
 ```groovy
@@ -26,13 +26,13 @@ repositories { mavenLocal() }
 
 // dependencies.gradle
 dependencies {
-    compileOnly("io.github.extendedheight:extendedheight:1.0.0:api")            // компиляция только против API
-    devOnlyNonPublishable("io.github.extendedheight:extendedheight:1.0.0:dev")  // библиотека с миксинами в runClient/runServer
+    compileOnly("io.github.extendedheight:extendedheight:1.0.1:api")            // компиляция только против API
+    devOnlyNonPublishable("io.github.extendedheight:extendedheight:1.0.1:dev")  // библиотека с миксинами в runClient/runServer
 }
 ```
 
 `@Mod(dependencies = "required-after:extendedheight@[1.0,)")`. В игре и в obf-запусках (`runObfServer`/`runObfClient`) в
-`mods` кладётся `extendedheight-1.0.0.jar` и UniMixins. Проверено проектом-потребителем `tools/consumer-test`
+`mods` кладётся `extendedheight-1.0.1.jar` и UniMixins. Проверено проектом-потребителем `tools/consumer-test`
 (свой тип мира −256…319, только API): миксины библиотеки работают и в его dev-окружении, и в obf.
 
 ### Требования
@@ -85,7 +85,7 @@ world.getHeight();                                // maxY + 1 для расши�
 
 ### Версии и стабильность API
 
-- Версия мода — семантическая: `MAJOR.MINOR.PATCH` (сейчас **1.0.0**, задаётся `modVersion` в `gradle.properties`).
+- Версия мода — семантическая: `MAJOR.MINOR.PATCH` (сейчас **1.0.1**, задаётся `modVersion` в `gradle.properties`).
   Зависимость объявляется так: `@Mod(dependencies = "required-after:extendedheight@[1.0,)")`.
 - Публичное API — **только пакет `io.github.extendedheight.api`** (он же целиком — `-api.jar`). Остальные пакеты
   (`core`, `net`, `client`, `mixins`, `world`, `selftest`) внутренние и могут меняться в любой версии.
@@ -155,7 +155,8 @@ public class MyWorldType extends WorldType implements IBiomeAtProvider {
 ### Спавн мобов
 
 Естественный спавн выбирает высоту от низа самой нижней непустой секции чанка до верха самой верхней (patch-map 7.6;
-чанк без блоков ниже 0 спавнит как в ванили) и спрашивает список у генератора с y:
+чанк без блоков ниже 0 спавнит как в ванили; так же и с оптимизацией спавна Hodgepodge, 7.6a) и спрашивает список у
+генератора с y:
 
 ```java
 public List getPossibleCreatures(EnumCreatureType type, int x, int y, int z) {
@@ -287,6 +288,12 @@ Reimagined r5.9.3). Миксины привязаны к внутренним к
   Проверка `earlyChunkTileCoordinateCheck` (по умолчанию включена) считает допустимыми высоты 0–255 и **роняет игру**
   при создании тайл-энтити ниже нуля (печь в деревне на y −130). Нужно `B:earlyChunkTileCoordinateCheck=false` в
   `config/hodgepodge.cfg`; проверка лишь уточняет сообщение об ошибке, на игру не влияет.
+  Оптимизация спавна мобов (`optimizeMobSpawning`, по умолчанию включена) **поддерживается** с версии 1.0.1:
+  Hodgepodge переписывает поиск точки спавна своим методом с ванильной формулой высоты (мобы не появлялись ниже 0, а в
+  чанке, где верхняя заполненная секция ниже y −15, падал тик мира: `bound must be positive`). В расширенных мирах
+  высота теперь выбирается так же, как в исправлении ванильного спавна (patch-map 7.6a); ванильные миры идут по коду
+  Hodgepodge без изменений. Сверено с байткодом Hodgepodge 2.7.218; в игре с Hodgepodge эта правка ещё не проверялась.
+  Остальные переписанные Hodgepodge методы спавна от высоты не зависят. Выключать настройку не нужно.
 - **CoreTweaks** (0.3.4.7), **GTNHLib** (0.11.54): проверены в сборке с этим модом.
 - OptiFine, FastCraft, NotEnoughIDs/EndlessIDs/ChunkAPI (формат секций и пакетов): не проверялись.
 

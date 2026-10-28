@@ -37,6 +37,7 @@
     "early.MixinPathNavigate",
     "early.MixinPistonY",
     "early.MixinSpawnerAnimals",
+    "early.compat.MixinSpawnerAnimalsHodgepodge",
     "early.SpawnerAnimalsInvoker",
     "early.MixinWorld",
     "early.MixinWorldInfo",
