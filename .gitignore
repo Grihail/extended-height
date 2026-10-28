@@ -41,3 +41,7 @@ layout.json
 /tools/consumer-test/run/
 /tools/consumer-test/.gradle/
 /tools/consumer-test/*.log
+
+# Логи падений JVM
+hs_err_pid*.log
+replay_pid*.log
