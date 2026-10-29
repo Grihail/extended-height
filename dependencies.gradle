@@ -42,6 +42,16 @@ dependencies {
     testRuntimeOnly("org.junit.platform:junit-platform-launcher")
 }
 
+// Стенд совместимости: -PehCompatDeobf=<каталог> — jar'ы с srg-именами без dev-сборки, деобфусцируются RFG
+def ehCompatDeobf = project.findProperty("ehCompatDeobf")
+if (ehCompatDeobf) {
+    dependencies {
+        project.file(ehCompatDeobf).listFiles().findAll { it.name.endsWith(".jar") }.each { File jar ->
+            devOnlyNonPublishable(rfg.deobf(project.files(jar)))
+        }
+    }
+}
+
 tasks.named("test") {
     useJUnitPlatform()
 }
@@ -49,10 +59,14 @@ tasks.named("test") {
 // scripts/selftest.ps1 запускает dev- и obf-клиент/сервер в отдельных каталогах
 def ehWorkDir = project.findProperty("ehWorkDir")
 if (ehWorkDir) {
-    tasks.matching { it.name in ["runServer", "runObfServer", "runClient", "runObfClient"] }.configureEach {
-        workingDir = project.file(ehWorkDir)
-        // Маленькие тестовые миры: малая куча, чтобы самотест выживал на загруженной машине
-        maxHeapSize = name.contains("Client") ? "1536m" : "1024m"
+    def ehRunTasks = ["runServer", "runObfServer", "runClient", "runObfClient", "runClient25"]
+    // runClient25 получает свой workingDir при создании, поэтому настройка — после оценки проекта
+    afterEvaluate {
+        tasks.matching { it.name in ehRunTasks }.configureEach {
+            workingDir = project.file(ehWorkDir)
+            // Маленькие тестовые миры: малая куча, чтобы самотест выживал на загруженной машине
+            maxHeapSize = project.findProperty("ehHeap") ?: (name.contains("Client") ? "1536m" : "1024m")
+        }
     }
     // Obf-запуски грузят моды из <workingDir>/mods; prepareObfModsFolder кладёт туда reobf-jar мода и UniMixins
     def obfModsSource = project.file("run/obfuscated/mods")

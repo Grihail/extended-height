@@ -38,6 +38,8 @@
     "early.MixinPistonY",
     "early.MixinSpawnerAnimals",
     "early.compat.MixinSpawnerAnimalsHodgepodge",
+    "early.compat.dh.MixinDhChunkWrapper",
+    "early.compat.dh.MixinDhServerLevelWrapper",
     "early.SpawnerAnimalsInvoker",
     "early.MixinWorld",
     "early.MixinWorldInfo",
@@ -92,6 +94,7 @@
     "early.client.angelica.MixinCeleritasWorldRenderer",
     "early.client.angelica.MixinClonedChunkSection",
     "early.client.angelica.MixinWorldSlice",
+    "early.compat.dh.MixinDhClientLevelWrapper",
     "early.client.WorldClientAccessor"
   ],
   "server": []

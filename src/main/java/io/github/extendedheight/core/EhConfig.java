@@ -160,9 +160,9 @@ public final class EhConfig {
         return false;
     }
 
-    /** Регистрирует {@link #vanillaWorldRange} для ванильных типов миров; не в самотесте */
+    /** Регистрирует {@link #vanillaWorldRange} для ванильных типов миров; не в самотесте, кроме стенда compat */
     public static void registerVanillaWorldTypes() {
-        if (vanillaWorldRange.isVanilla() || SelfTest.isActive()) {
+        if (vanillaWorldRange.isVanilla() || SelfTest.isActive() && !"compat".equals(SelfTest.phase())) {
             return;
         }
         for (WorldType type : VANILLA_WORLD_TYPES) {

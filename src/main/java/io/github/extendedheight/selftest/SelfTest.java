@@ -72,10 +72,10 @@ public final class SelfTest {
         return config() != null;
     }
 
-    /** Фазы под управлением клиента: client-audit, net-client и net-nomod */
+    /** Фазы под управлением клиента: client-audit, net-client, net-nomod и compat */
     public static boolean isClientPhase() {
         String p = phase();
-        return "client-audit".equals(p) || "net-client".equals(p) || "net-nomod".equals(p);
+        return "client-audit".equals(p) || "net-client".equals(p) || "net-nomod".equals(p) || "compat".equals(p);
     }
 
     /** Фаза net-nomod: клиент скрывает мод в рукопожатии FML */
@@ -152,7 +152,13 @@ public final class SelfTest {
             ExtendedHeightMod.LOG.error("Mixin audit failed", error);
         }
         // Продолжение по клиентским тикам: мир (или выделенный сервер), затем отчёт и закрытие игры
-        if (phase().startsWith("net-")) {
+        if ("compat".equals(phase())) {
+            CompatBench.start(
+                test,
+                Integer.parseInt(config().getProperty("waitSeconds", "90")),
+                Integer.parseInt(config().getProperty("shots", "3")),
+                Long.parseLong(config().getProperty("seed", "20261018")));
+        } else if (phase().startsWith("net-")) {
             NetClientSelfTest.start(test, config().getProperty("server"), "net-nomod".equals(phase()));
         } else {
             ClientSelfTest.start(test);

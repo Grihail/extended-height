@@ -17,7 +17,7 @@ import org.spongepowered.asm.lib.tree.MethodNode;
 import org.spongepowered.asm.mixin.extensibility.IMixinConfigPlugin;
 import org.spongepowered.asm.mixin.extensibility.IMixinInfo;
 
-/** Плагин миксинов: выключатель для baseline самотеста и выбор миксинов под Angelica и Hodgepodge */
+/** Плагин миксинов: выключатель для baseline самотеста и выбор миксинов под Angelica, Hodgepodge и Distant Horizons */
 public class MixinPlugin implements IMixinConfigPlugin {
 
     public static final String DISABLE_FILE = "extendedheight-disable-mixins";
@@ -49,6 +49,10 @@ public class MixinPlugin implements IMixinConfigPlugin {
     public static boolean angelicaPresent() {
         return ANGELICA;
     }
+
+    /** Distant Horizons (бэкпорт GTNH): миксины compat.dh на его обёртки чанка и уровня */
+    private static final boolean DISTANT_HORIZONS = MixinPlugin.class
+        .getResource("/com/seibel/distanthorizons/common/wrappers/chunk/ChunkWrapper.class") != null;
 
     /** Метод, который MixinSpawnerAnimals_optimizeSpawning из Hodgepodge добавляет в SpawnerAnimals */
     static final String HODGEPODGE_SPAWN_METHOD = "hodgepodge$getRandomPosInChunk";
@@ -107,6 +111,9 @@ public class MixinPlugin implements IMixinConfigPlugin {
         }
         // Миксины на классы Angelica (вариант B) есть только вместе с Angelica
         if (!ANGELICA && mixinClassName.contains(".client.angelica.")) {
+            return false;
+        }
+        if (!DISTANT_HORIZONS && mixinClassName.contains(".compat.dh.")) {
             return false;
         }
         return !DISABLED;
