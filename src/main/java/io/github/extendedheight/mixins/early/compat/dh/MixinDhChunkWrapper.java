@@ -33,11 +33,7 @@ public abstract class MixinDhChunkWrapper {
         return range.isVanilla() ? null : range;
     }
 
-    @Inject(
-        method = "getHeight(Lnet/minecraft/world/chunk/Chunk;)I",
-        at = @At("HEAD"),
-        cancellable = true,
-        require = 1)
+    @Inject(method = "getHeight(Lnet/minecraft/world/chunk/Chunk;)I", at = @At("HEAD"), cancellable = true, require = 1)
     private static void eh$height(Chunk chunk, CallbackInfoReturnable<Integer> cir) {
         HeightRange range = eh$extended(chunk);
         if (range != null) {

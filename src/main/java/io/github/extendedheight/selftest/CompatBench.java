@@ -119,7 +119,9 @@ public final class CompatBench {
                     mc.displayHeight,
                     mc.getFramebuffer());
                 report.info(
-                    "screenshot compat-" + shot + ".png at t=" + ticks / 20
+                    "screenshot compat-" + shot
+                        + ".png at t="
+                        + ticks / 20
                         + " s, player y "
                         + (int) mc.thePlayer.posY);
                 if (shot >= shots) {
