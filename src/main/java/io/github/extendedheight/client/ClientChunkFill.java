@@ -4,7 +4,9 @@ import java.util.ArrayList;
 import java.util.List;
 
 import net.minecraft.block.Block;
+import net.minecraft.init.Blocks;
 import net.minecraft.tileentity.TileEntity;
+import net.minecraft.world.ChunkPosition;
 import net.minecraft.world.chunk.Chunk;
 import net.minecraft.world.chunk.NibbleArray;
 import net.minecraft.world.chunk.storage.ExtendedBlockStorage;
@@ -104,6 +106,43 @@ public final class ClientChunkFill {
         }
         for (TileEntity te : invalid) {
             te.invalidate();
+        }
+        createTileEntities(chunk, s, mask);
+    }
+
+    /**
+     * Тайлы блоков, которым они положены, но которых сервер не прислал (у них нет пакета описания: портал Края и
+     * т. п.). Ванильный fillChunk их не создаёт — их лениво создаёт ванильный сборщик чанков через
+     * ChunkCache.getTileEntity. Angelica так не делает: она создаёт их сразу в fillChunk (2.2.44), а его при
+     * расширенных пакетах заменяет этот класс, и без этого шага такие тайлы под Angelica не появлялись вовсе
+     * (портал Края пропадал после смены измерения или перезахода).
+     */
+    private static void createTileEntities(Chunk chunk, ExtendedBlockStorage[] s, long mask) {
+        for (int l = 0; l < s.length; ++l) {
+            ExtendedBlockStorage st = s[l];
+            if ((mask & 1L << l) == 0 || st == null || st.isEmpty()) {
+                continue;
+            }
+            int baseY = st.getYLocation();
+            for (int y = 0; y < 16; ++y) {
+                for (int z = 0; z < 16; ++z) {
+                    for (int x = 0; x < 16; ++x) {
+                        Block block = st.getBlockByExtId(x, y, z);
+                        if (block == Blocks.air || !block.hasTileEntity(st.getExtBlockMetadata(x, y, z))) {
+                            continue;
+                        }
+                        ChunkPosition pos = new ChunkPosition(x, baseY + y, z);
+                        TileEntity te = (TileEntity) chunk.chunkTileEntityMap.get(pos);
+                        if (te != null && te.isInvalid()) {
+                            chunk.chunkTileEntityMap.remove(pos);
+                            te = null;
+                        }
+                        if (te == null) {
+                            chunk.func_150806_e(x, baseY + y, z); // creates it, as the vanilla renderer's lookup does
+                        }
+                    }
+                }
+            }
         }
     }
 
