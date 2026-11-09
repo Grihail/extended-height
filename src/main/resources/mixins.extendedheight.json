@@ -28,6 +28,7 @@
     "early.MixinChunkCache",
     "early.MixinChunkEntities",
     "early.MixinChunkLight",
+    "early.MixinChunkProviderServerLayout",
     "early.MixinDragonEggY",
     "early.MixinEntityVoid",
     "early.MixinFallingBlockEntity",

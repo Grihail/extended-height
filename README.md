@@ -8,7 +8,7 @@
 Default_1_1): новые миры получают y −256…511, это можно изменить или вернуть ванильные 0…255 в конфиге (раздел
 `world`, см. «Конфиг»). Уже существующие миры сохраняют свою высоту.
 
-> **Версия 1.0.1.** Готовы: хранение, World API, сохранение, свет, сеть и рендер (3a), сущности и спавн ниже 0,
+> **Версия 1.0.2.** Готовы: хранение, World API, сохранение, свет, сеть и рендер (3a), сущности и спавн ниже 0,
 > API для генераторов (`ExtendedChunkPrimer`, `IBiomeAtProvider`, `IVoidEffectsProvider`). Не готовы: часть 3b (свет
 > клиента против сервера, горизонт, погода и облака у границ, худший случай S26, замеры), совместимость с OptiFine и
 > другими модами (веха 5).
@@ -17,7 +17,7 @@ Default_1_1): новые миры получают y −256…511, это мож
 ## Подключение
 
 Пока артефакт не опубликован в общем репозитории, его ставят в mavenLocal: `gradlew publishToMavenLocal` в этом
-проекте (координаты `io.github.extendedheight:extendedheight:1.0.1`, классификаторы `api`, `dev`, `sources` и
+проекте (координаты `io.github.extendedheight:extendedheight:1.0.2`, классификаторы `api`, `dev`, `sources` и
 основной обфусцированный jar). В своём моде (шаблон GTNH ExampleMod / RFG):
 
 ```groovy
@@ -26,13 +26,13 @@ repositories { mavenLocal() }
 
 // dependencies.gradle
 dependencies {
-    compileOnly("io.github.extendedheight:extendedheight:1.0.1:api")            // компиляция только против API
-    devOnlyNonPublishable("io.github.extendedheight:extendedheight:1.0.1:dev")  // библиотека с миксинами в runClient/runServer
+    compileOnly("io.github.extendedheight:extendedheight:1.0.2:api")            // компиляция только против API
+    devOnlyNonPublishable("io.github.extendedheight:extendedheight:1.0.2:dev")  // библиотека с миксинами в runClient/runServer
 }
 ```
 
 `@Mod(dependencies = "required-after:extendedheight@[1.0,)")`. В игре и в obf-запусках (`runObfServer`/`runObfClient`) в
-`mods` кладётся `extendedheight-1.0.1.jar` и UniMixins. Проверено проектом-потребителем `tools/consumer-test`
+`mods` кладётся `extendedheight-1.0.2.jar` и UniMixins. Проверено проектом-потребителем `tools/consumer-test`
 (свой тип мира −256…319, только API): миксины библиотеки работают и в его dev-окружении, и в obf.
 
 ### Требования
@@ -85,7 +85,7 @@ world.getHeight();                                // maxY + 1 для расши�
 
 ### Версии и стабильность API
 
-- Версия мода — семантическая: `MAJOR.MINOR.PATCH` (сейчас **1.0.1**, задаётся `modVersion` в `gradle.properties`).
+- Версия мода — семантическая: `MAJOR.MINOR.PATCH` (сейчас **1.0.2**, задаётся `modVersion` в `gradle.properties`).
   Зависимость объявляется так: `@Mod(dependencies = "required-after:extendedheight@[1.0,)")`.
 - Публичное API — **только пакет `io.github.extendedheight.api`** (он же целиком — `-api.jar`). Остальные пакеты
   (`core`, `net`, `client`, `mixins`, `world`, `selftest`) внутренние и могут меняться в любой версии.

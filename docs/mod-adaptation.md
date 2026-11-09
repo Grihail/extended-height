@@ -7,7 +7,7 @@ API: пакет `io.github.extendedheight.api` ([README, «API»](../README.md#a
 
 ```groovy
 // dependencies.gradle
-compileOnly("io.github.extendedheight:extendedheight:1.0.1:api")
+compileOnly("io.github.extendedheight:extendedheight:1.0.2:api")
 ```
 
 | Зависимость | `@Mod(dependencies = ...)` | Вызовы API |

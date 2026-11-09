@@ -203,6 +203,7 @@ public final class SelfTest {
                 new LightTests(this, extWorld()).runWrite();
                 new ServerEntityTests(this, extWorld(), server.worldServerForDimension(0)).run();
                 new PrimerTests(this, extWorld(), server.worldServerForDimension(0)).run();
+                checkFlatGeneratorLayout();
                 saveAll();
                 snapshotAndCompare(false);
                 checkSavedSections();
@@ -248,6 +249,52 @@ public final class SelfTest {
     }
 
     // ---- расширенное измерение ----
+
+    /** Ванильный генератор, пишущий storageArrays[y >> 4] (суперплоский): слои на своих y 0..3, низ мира пуст */
+    private void checkFlatGeneratorLayout() throws Exception {
+        WorldServer world = extWorld();
+        java.lang.reflect.Field field = null;
+        for (String name : new String[] { "currentChunkProvider", "field_73246_d" }) {
+            try {
+                field = net.minecraft.world.gen.ChunkProviderServer.class.getDeclaredField(name);
+                break;
+            } catch (NoSuchFieldException ignored) {}
+        }
+        field.setAccessible(true);
+        Object original = field.get(world.theChunkProviderServer);
+        field.set(
+            world.theChunkProviderServer,
+            new net.minecraft.world.gen.ChunkProviderFlat(world, 20261018L, false, "2;7,2x3,2;1;"));
+        try {
+            int cx = 1000, cz = 1000, x = cx * 16 + 5, z = cz * 16 + 7;
+            world.theChunkProviderServer.loadChunk(cx, cz);
+            int minY = ExtendedHeight.getMinY(world);
+            String layers = world.getBlock(x, 0, z) + " "
+                + world.getBlock(x, 1, z)
+                + " "
+                + world.getBlock(x, 2, z)
+                + " "
+                + world.getBlock(x, 3, z)
+                + " "
+                + world.getBlock(x, 4, z)
+                + " | bottom "
+                + world.getBlock(x, minY, z);
+            check(
+                "superflat generator: layers at y 0..3, nothing at the bottom",
+                world.getBlock(x, 0, z) == Blocks.bedrock && world.getBlock(x, 1, z) == Blocks.dirt
+                    && world.getBlock(x, 2, z) == Blocks.dirt
+                    && world.getBlock(x, 3, z) == Blocks.grass
+                    && world.getBlock(x, 4, z) == Blocks.air
+                    && world.getBlock(x, minY, z) == Blocks.air,
+                layers);
+            check(
+                "superflat generator: height map at y 4",
+                world.getHeightValue(x, z) == 4,
+                world.getHeightValue(x, z));
+        } finally {
+            field.set(world.theChunkProviderServer, original);
+        }
+    }
 
     private WorldServer extWorld() {
         return server.worldServerForDimension(EXT_DIM);
